@@ -52,6 +52,14 @@
 namespace colmap {
 namespace mvs {
 
+struct PointsInfo3d {
+  std::vector<float> coord3dx;
+  std::vector<float> coord3dy;
+  std::vector<float> coord3dz;
+  std::vector<int> coord2drow;
+  std::vector<int> coord2dcol;
+};
+
 struct StereoFusionOptions {
   // Maximum image size in either dimension.
   int max_image_size = -1;
@@ -103,6 +111,7 @@ class StereoFusion : public Thread {
 
   const std::vector<PlyPoint>& GetFusedPoints() const;
   const std::vector<std::vector<int>>& GetFusedPointsVisibility() const;
+  const std::map<int, PointsInfo3d>& Get2d3dCorrespondenceData() const;
 
  private:
   void Run();
@@ -143,8 +152,9 @@ class StereoFusion : public Thread {
   // Already fused points.
   std::vector<PlyPoint> fused_points_;
   std::vector<std::vector<int>> fused_points_visibility_;
+  std::map<int, PointsInfo3d> frame_number_to_3dlist_;
 
-  // Points of different pixels of the currently point to be fused.
+  // Points of different pixels of the current point to be fused.
   std::vector<float> fused_point_x_;
   std::vector<float> fused_point_y_;
   std::vector<float> fused_point_z_;
@@ -172,6 +182,10 @@ class StereoFusion : public Thread {
 void WritePointsVisibility(
     const std::string& path,
     const std::vector<std::vector<int>>& points_visibility);
+
+void Write2d3dCorrespondenceData(
+    const std::string& path,
+    const std::map<int, PointsInfo3d>& correspondenceData);
 
 }  // namespace mvs
 }  // namespace colmap

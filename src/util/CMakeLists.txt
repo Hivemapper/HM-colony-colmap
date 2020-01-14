@@ -36,6 +36,7 @@ COLMAP_ADD_SOURCES(
     bitmap.h bitmap.cc
     cache.h
     camera_specs.h camera_specs.cc
+    json.h
     logging.h logging.cc
     math.h math.cc
     matrix.h

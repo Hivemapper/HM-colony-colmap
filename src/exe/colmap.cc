@@ -302,8 +302,8 @@ int RunStereoFuser(int argc, char** argv) {
 
   std::cout << "Writing output: " << output_path << std::endl;
   WriteBinaryPlyPoints(output_path, fuser.GetFusedPoints());
-  mvs::WritePointsVisibility(output_path + ".vis",
-                             fuser.GetFusedPointsVisibility());
+  mvs::Write2d3dCorrespondenceData(output_path + ".vis",
+                             fuser.Get2d3dCorrespondenceData());
 
   return EXIT_SUCCESS;
 }

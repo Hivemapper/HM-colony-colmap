@@ -30,8 +30,13 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "mvs/fusion.h"
-
+#include <map>
+#include <string>
+#include <utility>
+#include <limits>
+#include "json/json/json.h"
 #include "util/misc.h"
+
 
 namespace colmap {
 namespace mvs {
@@ -132,9 +137,15 @@ const std::vector<std::vector<int>>& StereoFusion::GetFusedPointsVisibility()
   return fused_points_visibility_;
 }
 
+const std::map<int, PointsInfo3d>& StereoFusion::Get2d3dCorrespondenceData()
+    const {
+  return frame_number_to_3dlist_;
+}
+
 void StereoFusion::Run() {
   fused_points_.clear();
   fused_points_visibility_.clear();
+  frame_number_to_3dlist_.clear();
 
   options_.Print();
   std::cout << std::endl;
@@ -395,6 +406,10 @@ void StereoFusion::Fuse() {
     fused_point_b_.push_back(color.b);
     fused_point_visibility_.insert(image_idx);
 
+    // Add the correspondence data for this frame
+    frame_number_to_3dlist_[image_idx].coord2drow.push_back(row);
+    frame_number_to_3dlist_[image_idx].coord2dcol.push_back(col);
+
     // Remember the first pixel as the reference.
     if (traversal_depth == 0) {
       fused_ref_point = Eigen::Vector4f(xyz(0), xyz(1), xyz(2), 1.0f);
@@ -469,7 +484,67 @@ void StereoFusion::Fuse() {
     fused_points_.push_back(fused_point);
     fused_points_visibility_.emplace_back(fused_point_visibility_.begin(),
                                           fused_point_visibility_.end());
+
+    // For each frame that sees this 3D point, add 3d point information
+    for (auto& frame : fused_point_visibility_) {
+      frame_number_to_3dlist_[frame].coord3dx.push_back(fused_point.x);
+      frame_number_to_3dlist_[frame].coord3dy.push_back(fused_point.y);
+      frame_number_to_3dlist_[frame].coord3dz.push_back(fused_point.z);
+    }
   }
+}
+
+void Write2d3dCorrespondenceData(
+    const std::string& path,
+    const std::map<int, PointsInfo3d>& frame_number_to_3dlist_) {
+  // Open the file
+  std::ofstream file_id;
+  file_id.open(path);
+
+  // Create the JSON object and writer
+  Json::Value root;
+  Json::Value all_frames = root["all_frames"];
+  Json::StyledWriter styledWriter;
+
+  // Fill the JSON object up for each frame
+  for (const auto& frameData : frame_number_to_3dlist_) {
+    auto frameNumber = frameData.first;
+    PointsInfo3d pointsData = frameData.second;
+
+    // Check that the number of 3D and 2D points are the same for a given frame
+    assert(pointsData.coord3dx.size() == pointsData.coord2drow.size());
+
+    // Initialize the empty point vectors
+    Json::Value vec3dx(Json::arrayValue);
+    Json::Value vec3dy(Json::arrayValue);
+    Json::Value vec3dz(Json::arrayValue);
+    Json::Value vec2drow(Json::arrayValue);
+    Json::Value vec2dcol(Json::arrayValue);
+
+    // Fill the 3d point vectors
+    for (unsigned int i = 0; i < pointsData.coord2drow.size(); ++i) {
+      vec3dx.append(Json::Value(pointsData.coord3dx[i]));
+      vec3dy.append(Json::Value(pointsData.coord3dy[i]));
+      vec3dz.append(Json::Value(pointsData.coord3dz[i]));
+      vec2drow.append(Json::Value(pointsData.coord2drow[i]));
+      vec2dcol.append(Json::Value(pointsData.coord2dcol[i]));
+    }
+
+    // Make the struct for a single correspondence frame
+    Json::Value singleFrame;
+    singleFrame["frameNumber"] = frameNumber;
+    singleFrame["3dx"] = vec3dx;
+    singleFrame["3dy"] = vec3dy;
+    singleFrame["3dz"] = vec3dz;
+    singleFrame["2drow"] = vec2drow;
+    singleFrame["2dcol"] = vec2dcol;
+
+    // Add the single correspondence frame struct to the main JSON object
+    all_frames.append(singleFrame);
+  }
+  // Write the full JSON object to file
+  file_id << styledWriter.write(root);
+  file_id.close();
 }
 
 void WritePointsVisibility(
