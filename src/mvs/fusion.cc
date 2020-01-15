@@ -137,7 +137,7 @@ const std::vector<std::vector<int>>& StereoFusion::GetFusedPointsVisibility()
   return fused_points_visibility_;
 }
 
-const std::map<int, PointsInfo3d>& StereoFusion::Get2d3dCorrespondenceData()
+const std::map<int, FrameInfo>& StereoFusion::Get2d3dCorrespondenceData()
     const {
   return frame_number_to_3dlist_;
 }
@@ -268,6 +268,8 @@ void StereoFusion::Run() {
     FusionData data;
     data.image_idx = image_idx;
     data.traversal_depth = 0;
+    data.width = width;
+    data.height = height;
 
     for (data.row = 0; data.row < height; ++data.row) {
       for (data.col = 0; data.col < width; ++data.col) {
@@ -319,12 +321,16 @@ void StereoFusion::Fuse() {
   fused_point_g_.clear();
   fused_point_b_.clear();
   fused_point_visibility_.clear();
+  fused_point_visibility_row.clear();
+  fused_point_visibility_col.clear();
 
   while (!fusion_queue_.empty()) {
     const auto data = fusion_queue_.back();
     const int image_idx = data.image_idx;
     const int row = data.row;
     const int col = data.col;
+    const int height = data.height;
+    const int width = data.width;
     const int traversal_depth = data.traversal_depth;
 
     fusion_queue_.pop_back();
@@ -405,10 +411,12 @@ void StereoFusion::Fuse() {
     fused_point_g_.push_back(color.g);
     fused_point_b_.push_back(color.b);
     fused_point_visibility_.insert(image_idx);
+    fused_point_visibility_row.push_back(row);
+    fused_point_visibility_col.push_back(col);
 
-    // Add the correspondence data for this frame
-    frame_number_to_3dlist_[image_idx].coord2drow.push_back(row);
-    frame_number_to_3dlist_[image_idx].coord2dcol.push_back(col);
+    // Add the height / width data for this frame
+    frame_number_to_3dlist_[image_idx].height = height;
+    frame_number_to_3dlist_[image_idx].width = width;
 
     // Remember the first pixel as the reference.
     if (traversal_depth == 0) {
@@ -481,70 +489,63 @@ void StereoFusion::Fuse() {
     fused_point.b = TruncateCast<float, uint8_t>(
         std::round(internal::Median(&fused_point_b_)));
 
+    int fusedPointIndex = fused_points_.size();
     fused_points_.push_back(fused_point);
     fused_points_visibility_.emplace_back(fused_point_visibility_.begin(),
                                           fused_point_visibility_.end());
 
     // For each frame that sees this 3D point, add 3d point information
+    int i = 0;
     for (auto& frame : fused_point_visibility_) {
-      frame_number_to_3dlist_[frame].coord3dx.push_back(fused_point.x);
-      frame_number_to_3dlist_[frame].coord3dy.push_back(fused_point.y);
-      frame_number_to_3dlist_[frame].coord3dz.push_back(fused_point.z);
+      frame_number_to_3dlist_[frame].coord2drow.push_back(
+          fused_point_visibility_row[i]);
+      frame_number_to_3dlist_[frame].coord2dcol.push_back(
+          fused_point_visibility_col[i]);
+      frame_number_to_3dlist_[frame].coord3dInd.push_back(
+          fusedPointIndex);  // Gives the c++ index of the fused point (first at
+                             // 0, not 1).
+      i = i + 1;
     }
   }
 }
 
 void Write2d3dCorrespondenceData(
-    const std::string& path,
-    const std::map<int, PointsInfo3d>& frame_number_to_3dlist_) {
-  // Open the file
-  std::ofstream file_id;
-  file_id.open(path);
+    const std::string& DataPath, const std::string& MetaDataPath,
+    const std::map<int, FrameInfo>& frame_number_to_3dlist_) {
+  // Open the data file
+  std::ofstream dataCSV;
+  dataCSV.open(DataPath);
 
-  // Create the JSON object and writer
-  Json::Value root;
-  Json::Value all_frames = root["all_frames"];
-  Json::StyledWriter styledWriter;
+  // Open the metadata file
+  std::ofstream metadataCSV;
+  metadataCSV.open(MetaDataPath);
+
+  // Write the headers for the csv files
+  metadataCSV << "FrameNumber,Height,Width,NumPoints\n";
+  dataCSV << "FrameNumber,FrameRow,FrameCol,3dPlyIndex\n";
 
   // Fill the JSON object up for each frame
   for (const auto& frameData : frame_number_to_3dlist_) {
-    auto frameNumber = frameData.first;
-    PointsInfo3d pointsData = frameData.second;
+    int frameNumber = frameData.first;
+
+    FrameInfo pointsData = frameData.second;
 
     // Check that the number of 3D and 2D points are the same for a given frame
-    assert(pointsData.coord3dx.size() == pointsData.coord2drow.size());
+    assert(pointsData.coord3dInd.size() == pointsData.coord2drow.size());
 
-    // Initialize the empty point vectors
-    Json::Value vec3dx(Json::arrayValue);
-    Json::Value vec3dy(Json::arrayValue);
-    Json::Value vec3dz(Json::arrayValue);
-    Json::Value vec2drow(Json::arrayValue);
-    Json::Value vec2dcol(Json::arrayValue);
+    // Write frame info: (FrameNumber, #pointsForThisFrame)
+    metadataCSV << frameNumber << "," << pointsData.height << ","
+                << pointsData.width << "," << pointsData.coord2drow.size()
+                << "\n";
 
-    // Fill the 3d point vectors
+    // Describe points: (2dx,2dy,3dpointIndexForPlyFile)
     for (unsigned int i = 0; i < pointsData.coord2drow.size(); ++i) {
-      vec3dx.append(Json::Value(pointsData.coord3dx[i]));
-      vec3dy.append(Json::Value(pointsData.coord3dy[i]));
-      vec3dz.append(Json::Value(pointsData.coord3dz[i]));
-      vec2drow.append(Json::Value(pointsData.coord2drow[i]));
-      vec2dcol.append(Json::Value(pointsData.coord2dcol[i]));
+      dataCSV << frameNumber << "," << pointsData.coord2drow[i] << "," << pointsData.coord2dcol[i]
+              << "," << pointsData.coord3dInd[i] << "\n";
     }
-
-    // Make the struct for a single correspondence frame
-    Json::Value singleFrame;
-    singleFrame["frameNumber"] = frameNumber;
-    singleFrame["3dx"] = vec3dx;
-    singleFrame["3dy"] = vec3dy;
-    singleFrame["3dz"] = vec3dz;
-    singleFrame["2drow"] = vec2drow;
-    singleFrame["2dcol"] = vec2dcol;
-
-    // Add the single correspondence frame struct to the main JSON object
-    all_frames.append(singleFrame);
   }
-  // Write the full JSON object to file
-  file_id << styledWriter.write(root);
-  file_id.close();
+  dataCSV.close();
+  metadataCSV.close();
 }
 
 void WritePointsVisibility(

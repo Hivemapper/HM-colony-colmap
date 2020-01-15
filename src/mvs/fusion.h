@@ -34,6 +34,8 @@
 
 #include <unordered_set>
 #include <vector>
+#include <string>
+#include <map>
 
 #include <Eigen/Core>
 
@@ -52,12 +54,12 @@
 namespace colmap {
 namespace mvs {
 
-struct PointsInfo3d {
-  std::vector<float> coord3dx;
-  std::vector<float> coord3dy;
-  std::vector<float> coord3dz;
+struct FrameInfo {
+  int height;
+  int width;
   std::vector<int> coord2drow;
   std::vector<int> coord2dcol;
+  std::vector<int> coord3dInd;
 };
 
 struct StereoFusionOptions {
@@ -111,7 +113,7 @@ class StereoFusion : public Thread {
 
   const std::vector<PlyPoint>& GetFusedPoints() const;
   const std::vector<std::vector<int>>& GetFusedPointsVisibility() const;
-  const std::map<int, PointsInfo3d>& Get2d3dCorrespondenceData() const;
+  const std::map<int, FrameInfo>& Get2d3dCorrespondenceData() const;
 
  private:
   void Run();
@@ -140,6 +142,8 @@ class StereoFusion : public Thread {
     int image_idx = kInvalidImageId;
     int row = 0;
     int col = 0;
+    int height = 0;
+    int width = 0;
     int traversal_depth = -1;
     bool operator()(const FusionData& data1, const FusionData& data2) {
       return data1.image_idx > data2.image_idx;
@@ -152,7 +156,7 @@ class StereoFusion : public Thread {
   // Already fused points.
   std::vector<PlyPoint> fused_points_;
   std::vector<std::vector<int>> fused_points_visibility_;
-  std::map<int, PointsInfo3d> frame_number_to_3dlist_;
+  std::map<int, FrameInfo> frame_number_to_3dlist_;
 
   // Points of different pixels of the current point to be fused.
   std::vector<float> fused_point_x_;
@@ -165,6 +169,8 @@ class StereoFusion : public Thread {
   std::vector<uint8_t> fused_point_g_;
   std::vector<uint8_t> fused_point_b_;
   std::unordered_set<int> fused_point_visibility_;
+  std::vector<int> fused_point_visibility_row;
+  std::vector<int> fused_point_visibility_col;
 };
 
 // Write the visiblity information into a binary file of the following format:
@@ -184,8 +190,8 @@ void WritePointsVisibility(
     const std::vector<std::vector<int>>& points_visibility);
 
 void Write2d3dCorrespondenceData(
-    const std::string& path,
-    const std::map<int, PointsInfo3d>& correspondenceData);
+    const std::string& DataPath, const std::string& MetaDataPath,
+    const std::map<int, FrameInfo>& correspondenceData);
 
 }  // namespace mvs
 }  // namespace colmap
