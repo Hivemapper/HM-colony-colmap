@@ -513,12 +513,12 @@ void Write2d3dCorrespondenceData(
     const std::string& DataPath, const std::string& MetaDataPath,
     const std::map<int, FrameInfo>& frame_number_to_3dlist_) {
   // Open the data file
-  std::ofstream dataCSV;
-  dataCSV.open(DataPath);
+  std::fstream dataCSV(DataPath, std::ios::out);
+  CHECK(dataCSV.is_open()) << DataPath;
 
   // Open the metadata file
-  std::ofstream metadataCSV;
-  metadataCSV.open(MetaDataPath);
+  std::fstream metadataCSV(MetaDataPath, std::ios::out);
+  CHECK(metadataCSV.is_open()) << MetaDataPath;
 
   // Write the headers for the csv files
   metadataCSV << "FrameNumber,Height,Width,NumPoints\n";
@@ -540,8 +540,9 @@ void Write2d3dCorrespondenceData(
 
     // Describe points: (2dx,2dy,3dpointIndexForPlyFile)
     for (unsigned int i = 0; i < pointsData.coord2drow.size(); ++i) {
-      dataCSV << frameNumber << "," << pointsData.coord2drow[i] << "," << pointsData.coord2dcol[i]
-              << "," << pointsData.coord3dInd[i] << "\n";
+      dataCSV << frameNumber << "," << pointsData.coord2drow[i] << ","
+              << pointsData.coord2dcol[i] << "," << pointsData.coord3dInd[i]
+              << "\n";
     }
   }
   dataCSV.close();
