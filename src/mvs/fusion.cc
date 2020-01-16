@@ -524,7 +524,7 @@ void Write2d3dCorrespondenceData(
   metadataCSV << "FrameNumber,Height,Width,NumPoints\n";
   dataCSV << "FrameNumber,FrameRow,FrameCol,3dPlyIndex\n";
 
-  // Fill the JSON object up for each frame
+  // Fill the CSV file frame by frame
   for (const auto& frameData : frame_number_to_3dlist_) {
     int frameNumber = frameData.first;
 
