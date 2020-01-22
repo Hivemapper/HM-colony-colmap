@@ -502,6 +502,7 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
                             image_name.c_str())
             << std::endl;
 
+  // patch_match.GetDepthMap().WriteCSV(depth_map_path);
   patch_match.GetDepthMap().Write(depth_map_path);
   patch_match.GetNormalMap().Write(normal_map_path);
   if (options.write_consistency_graph) {

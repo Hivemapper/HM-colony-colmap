@@ -495,7 +495,7 @@ void StereoFusion::Fuse() {
                                           fused_point_visibility_.end());
 
     // For each frame that sees this 3D point, add 3d point information
-    int i = 0;
+    int i = 0; // This is kind of a screwy way to iterate... TODO consider changing
     for (auto& frame : fused_point_visibility_) {
       frame_number_to_3dlist_[frame].coord2drow.push_back(
           fused_point_visibility_row[i]);
