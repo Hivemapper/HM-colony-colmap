@@ -57,6 +57,7 @@ namespace mvs {
 struct FrameInfo {
   int height;
   int width;
+  // int image_idx;
   std::vector<int> coord2drow;
   std::vector<int> coord2dcol;
   std::vector<int> coord3dInd;
@@ -117,7 +118,7 @@ class StereoFusion : public Thread {
 
  private:
   void Run();
-  void Fuse();
+  void Fuse(std::map<int, std::string> nameMap);
 
   const StereoFusionOptions options_;
   const std::string workspace_path_;
@@ -169,8 +170,8 @@ class StereoFusion : public Thread {
   std::vector<uint8_t> fused_point_g_;
   std::vector<uint8_t> fused_point_b_;
   std::unordered_set<int> fused_point_visibility_;
-  std::vector<int> fused_point_visibility_row;
-  std::vector<int> fused_point_visibility_col;
+  std::map<int, int> fused_point_visibility_row;
+  std::map<int, int> fused_point_visibility_col;
 };
 
 // Write the visiblity information into a binary file of the following format:
@@ -193,6 +194,7 @@ void Write2d3dCorrespondenceData(
     const std::string& DataPath, const std::string& MetaDataPath,
     const std::map<int, FrameInfo>& correspondenceData);
 
+int getFrameNumberFromFilename(std::string& frameFileName);
 }  // namespace mvs
 }  // namespace colmap
 

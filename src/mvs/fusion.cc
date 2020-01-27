@@ -31,6 +31,7 @@
 
 #include "mvs/fusion.h"
 #include <map>
+#include <iostream>
 #include <string>
 #include <utility>
 #include <limits>
@@ -196,6 +197,12 @@ void StereoFusion::Run() {
   inv_P_.resize(model.images.size());
   inv_R_.resize(model.images.size());
 
+  // Build the map of image names to image_idx
+  std::map<int,std::string> nameMap;
+  for (unsigned int i=0; i<model.images.size(); ++i){
+    nameMap[i] = model.GetImageName(i);
+  }
+
   const auto image_names = ReadTextFileLines(JoinPaths(
       workspace_path_, workspace_options.stereo_folder, "fusion.cfg"));
   for (const auto& image_name : image_names) {
@@ -276,10 +283,8 @@ void StereoFusion::Run() {
         if (fused_pixel_mask.Get(data.row, data.col)) {
           continue;
         }
-
         fusion_queue_.push_back(data);
-
-        Fuse();
+        Fuse(nameMap);
       }
     }
 
@@ -305,7 +310,7 @@ void StereoFusion::Run() {
   GetTimer().PrintMinutes();
 }
 
-void StereoFusion::Fuse() {
+void StereoFusion::Fuse(std::map<int, std::string> nameMap) {
   CHECK_EQ(fusion_queue_.size(), 1);
 
   Eigen::Vector4f fused_ref_point = Eigen::Vector4f::Zero();
@@ -327,6 +332,7 @@ void StereoFusion::Fuse() {
   while (!fusion_queue_.empty()) {
     const auto data = fusion_queue_.back();
     const int image_idx = data.image_idx;
+    std::string imageName = nameMap[image_idx];
     const int row = data.row;
     const int col = data.col;
     const int height = data.height;
@@ -410,13 +416,20 @@ void StereoFusion::Fuse() {
     fused_point_r_.push_back(color.r);
     fused_point_g_.push_back(color.g);
     fused_point_b_.push_back(color.b);
-    fused_point_visibility_.insert(image_idx);
-    fused_point_visibility_row.push_back(row);
-    fused_point_visibility_col.push_back(col);
+
+    // Use the COLMAP image index to get the image filename, then get the int
+    // from the filename to get the proper frame_selection frame number
+    int frameNumber = getFrameNumberFromFilename(imageName);
+    fused_point_visibility_.insert(frameNumber);
 
     // Add the height / width data for this frame
-    frame_number_to_3dlist_[image_idx].height = height;
-    frame_number_to_3dlist_[image_idx].width = width;
+    frame_number_to_3dlist_[frameNumber].height = height;
+    frame_number_to_3dlist_[frameNumber].width = width;
+    // frame_number_to_3dlist_[frameNumber].image_idx = image_idx;
+
+    // Add the row/col info for each frame that sees this 3D point
+    fused_point_visibility_row[frameNumber] = row;
+    fused_point_visibility_col[frameNumber] = col;
 
     // Remember the first pixel as the reference.
     if (traversal_depth == 0) {
@@ -494,17 +507,17 @@ void StereoFusion::Fuse() {
     fused_points_visibility_.emplace_back(fused_point_visibility_.begin(),
                                           fused_point_visibility_.end());
 
-    // For each frame that sees this 3D point, add 3d point information
-    int i = 0; // This is kind of a screwy way to iterate... TODO consider changing
-    for (auto& frame : fused_point_visibility_) {
-      frame_number_to_3dlist_[frame].coord2drow.push_back(
-          fused_point_visibility_row[i]);
-      frame_number_to_3dlist_[frame].coord2dcol.push_back(
-          fused_point_visibility_col[i]);
+    // For each frame that sees this 3D point, add 3d point information: row,col
+    // of 3d point in frame. 3d point ply index.
+    for (auto& frame :
+         fused_point_visibility_) {  // Using the REAL frame number
       frame_number_to_3dlist_[frame].coord3dInd.push_back(
           fusedPointIndex);  // Gives the c++ index of the fused point (first at
                              // 0, not 1).
-      i = i + 1;
+      frame_number_to_3dlist_[frame].coord2drow.push_back(
+          fused_point_visibility_row[frame]);
+      frame_number_to_3dlist_[frame].coord2dcol.push_back(
+          fused_point_visibility_col[frame]);
     }
   }
 }
@@ -527,13 +540,12 @@ void Write2d3dCorrespondenceData(
   // Fill the CSV file frame by frame
   for (const auto& frameData : frame_number_to_3dlist_) {
     int frameNumber = frameData.first;
-
     FrameInfo pointsData = frameData.second;
 
     // Check that the number of 3D and 2D points are the same for a given frame
     assert(pointsData.coord3dInd.size() == pointsData.coord2drow.size());
 
-    // Write frame info: (FrameNumber, #pointsForThisFrame)
+    // Write frame info: (FrameNumber, height, width, #pointsForThisFrame)
     metadataCSV << frameNumber << "," << pointsData.height << ","
                 << pointsData.width << "," << pointsData.coord2drow.size()
                 << "\n";
@@ -547,6 +559,18 @@ void Write2d3dCorrespondenceData(
   }
   dataCSV.close();
   metadataCSV.close();
+}
+
+int getFrameNumberFromFilename(std::string& frameFileName) {
+  std::string toErase = ".png";
+  size_t pos = std::string::npos;
+  // Search for the substring in string in a loop untill nothing is found
+  while ((pos = frameFileName.find(toErase)) != std::string::npos) {
+    // If found then erase it from string
+    frameFileName.erase(pos, toErase.length());
+  }
+  int frameNumber = atoi(frameFileName.c_str());
+  return frameNumber;
 }
 
 void WritePointsVisibility(
