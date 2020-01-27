@@ -57,7 +57,6 @@ namespace mvs {
 struct FrameInfo {
   int height;
   int width;
-  // int image_idx;
   std::vector<int> coord2drow;
   std::vector<int> coord2dcol;
   std::vector<int> coord3dInd;

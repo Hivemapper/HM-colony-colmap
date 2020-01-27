@@ -425,7 +425,6 @@ void StereoFusion::Fuse(std::map<int, std::string> nameMap) {
     // Add the height / width data for this frame
     frame_number_to_3dlist_[frameNumber].height = height;
     frame_number_to_3dlist_[frameNumber].width = width;
-    // frame_number_to_3dlist_[frameNumber].image_idx = image_idx;
 
     // Add the row/col info for each frame that sees this 3D point
     fused_point_visibility_row[frameNumber] = row;
