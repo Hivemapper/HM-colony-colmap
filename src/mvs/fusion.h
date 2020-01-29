@@ -54,7 +54,13 @@
 namespace colmap {
 namespace mvs {
 
-struct FrameInfo {
+struct FrameMetadata {
+  int height;
+  int width;
+  std::string name;
+};
+
+struct FrameData {
   int height;
   int width;
   std::vector<int> coord2drow;
@@ -113,11 +119,11 @@ class StereoFusion : public Thread {
 
   const std::vector<PlyPoint>& GetFusedPoints() const;
   const std::vector<std::vector<int>>& GetFusedPointsVisibility() const;
-  const std::map<int, FrameInfo>& Get2d3dCorrespondenceData() const;
+  const std::map<int, FrameData>& Get2d3dCorrespondenceData() const;
 
  private:
   void Run();
-  void Fuse(std::map<int, std::string> nameMap);
+  void Fuse(std::map<int, FrameMetadata> FrameMetadataMap);
 
   const StereoFusionOptions options_;
   const std::string workspace_path_;
@@ -142,8 +148,6 @@ class StereoFusion : public Thread {
     int image_idx = kInvalidImageId;
     int row = 0;
     int col = 0;
-    int height = 0;
-    int width = 0;
     int traversal_depth = -1;
     bool operator()(const FusionData& data1, const FusionData& data2) {
       return data1.image_idx > data2.image_idx;
@@ -156,7 +160,7 @@ class StereoFusion : public Thread {
   // Already fused points.
   std::vector<PlyPoint> fused_points_;
   std::vector<std::vector<int>> fused_points_visibility_;
-  std::map<int, FrameInfo> frame_number_to_3dlist_;
+  std::map<int, FrameData> frame_number_to_3dlist_;
 
   // Points of different pixels of the current point to be fused.
   std::vector<float> fused_point_x_;
@@ -191,7 +195,7 @@ void WritePointsVisibility(
 
 void Write2d3dCorrespondenceData(
     const std::string& DataPath, const std::string& MetaDataPath,
-    const std::map<int, FrameInfo>& correspondenceData);
+    const std::map<int, FrameData>& correspondenceData);
 
 int getFrameNumberFromFilename(std::string& frameFileName);
 }  // namespace mvs

@@ -137,7 +137,7 @@ const std::vector<std::vector<int>>& StereoFusion::GetFusedPointsVisibility()
   return fused_points_visibility_;
 }
 
-const std::map<int, FrameInfo>& StereoFusion::Get2d3dCorrespondenceData()
+const std::map<int, FrameData>& StereoFusion::Get2d3dCorrespondenceData()
     const {
   return frame_number_to_3dlist_;
 }
@@ -195,12 +195,6 @@ void StereoFusion::Run() {
   P_.resize(model.images.size());
   inv_P_.resize(model.images.size());
   inv_R_.resize(model.images.size());
-
-  // Build the map of image names to image_idx
-  std::map<int,std::string> nameMap;
-  for (unsigned int i=0; i<model.images.size(); ++i){
-    nameMap[i] = model.GetImageName(i);
-  }
 
   const auto image_names = ReadTextFileLines(JoinPaths(
       workspace_path_, workspace_options.stereo_folder, "fusion.cfg"));
@@ -271,11 +265,21 @@ void StereoFusion::Run() {
     const int height = depth_map_sizes_.at(image_idx).second;
     const auto& fused_pixel_mask = fused_pixel_masks_.at(image_idx);
 
+    // Build the map of frame metadata to image_idx. We need this map here
+    // because unlike image_idx, and traversal_depth, 'height', 'width', and
+    // 'name' are not assigned for the 'next_data' frame. If we dont do this
+    // step here and make this mapping, the inner 'while' loop will need a place
+    // to get this data from.
+    std::map<int, FrameMetadata> FrameMetadataMap;
+    for (unsigned int i = 0; i < model.images.size(); ++i) {
+      FrameMetadataMap[i].name = model.GetImageName(i);
+      FrameMetadataMap[i].height = height;
+      FrameMetadataMap[i].width = width;
+    }
+
     FusionData data;
     data.image_idx = image_idx;
     data.traversal_depth = 0;
-    data.width = width;
-    data.height = height;
 
     for (data.row = 0; data.row < height; ++data.row) {
       for (data.col = 0; data.col < width; ++data.col) {
@@ -283,7 +287,7 @@ void StereoFusion::Run() {
           continue;
         }
         fusion_queue_.push_back(data);
-        Fuse(nameMap);
+        Fuse(FrameMetadataMap);
       }
     }
 
@@ -309,7 +313,7 @@ void StereoFusion::Run() {
   GetTimer().PrintMinutes();
 }
 
-void StereoFusion::Fuse(std::map<int, std::string> nameMap) {
+void StereoFusion::Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
   CHECK_EQ(fusion_queue_.size(), 1);
 
   Eigen::Vector4f fused_ref_point = Eigen::Vector4f::Zero();
@@ -331,13 +335,14 @@ void StereoFusion::Fuse(std::map<int, std::string> nameMap) {
   while (!fusion_queue_.empty()) {
     const auto data = fusion_queue_.back();
     const int image_idx = data.image_idx;
-    std::string imageName = nameMap[image_idx];
     const int row = data.row;
     const int col = data.col;
-    const int height = data.height;
-    const int width = data.width;
     const int traversal_depth = data.traversal_depth;
 
+    auto frameMetadata = FrameMetadataMap[image_idx];
+    std::string imageName = frameMetadata.name;
+    const int height = frameMetadata.height;
+    const int width = frameMetadata.width;
     fusion_queue_.pop_back();
 
     // Check if pixel already fused.
@@ -522,7 +527,7 @@ void StereoFusion::Fuse(std::map<int, std::string> nameMap) {
 
 void Write2d3dCorrespondenceData(
     const std::string& DataPath, const std::string& MetaDataPath,
-    const std::map<int, FrameInfo>& frame_number_to_3dlist_) {
+    const std::map<int, FrameData>& frame_number_to_3dlist_) {
   // Open the data file
   std::fstream dataCSV(DataPath, std::ios::out);
   CHECK(dataCSV.is_open()) << DataPath;
@@ -538,7 +543,7 @@ void Write2d3dCorrespondenceData(
   // Fill the CSV file frame by frame
   for (const auto& frameData : frame_number_to_3dlist_) {
     int frameNumber = frameData.first;
-    FrameInfo pointsData = frameData.second;
+    FrameData pointsData = frameData.second;
 
     // Check that the number of 3D and 2D points are the same for a given frame
     assert(pointsData.coord3dInd.size() == pointsData.coord2drow.size());
