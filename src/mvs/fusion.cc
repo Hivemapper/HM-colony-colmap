@@ -313,7 +313,7 @@ void StereoFusion::Run() {
   GetTimer().PrintMinutes();
 }
 
-void StereoFusion::Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
+void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
   CHECK_EQ(fusion_queue_.size(), 1);
 
   Eigen::Vector4f fused_ref_point = Eigen::Vector4f::Zero();
@@ -383,10 +383,10 @@ void StereoFusion::Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
 
     // Determine normal direction in global reference frame.
     const auto& normal_map = workspace_->GetNormalMap(image_idx);
-    const Eigen::Vector3f normal =
-        inv_R_.at(image_idx) * Eigen::Vector3f(normal_map.Get(row, col, 0),
-                                               normal_map.Get(row, col, 1),
-                                               normal_map.Get(row, col, 2));
+    const Eigen::Vector3f local_normal = Eigen::Vector3f(normal_map.Get(row, col, 0),
+                                                         normal_map.Get(row, col, 1),
+                                                         normal_map.Get(row, col, 2));
+    const Eigen::Vector3f normal = inv_R_.at(image_idx) * local_normal;
 
     // Check for consistent normal direction with reference normal.
     if (traversal_depth > 0) {
@@ -400,6 +400,18 @@ void StereoFusion::Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
     const Eigen::Vector3f xyz =
         inv_P_.at(image_idx) *
         Eigen::Vector4f(col * depth, row * depth, depth, 1.0f);
+
+    // Check that the normal is not perpendicular to the projection ray.
+    // This is likely not real geometry.
+    // Only need to do this when looking for reference point. The normal check above
+    // will take care of checking the rest
+    if (traversal_depth == 0) {
+      const Eigen::Vector3f xyz_norm = xyz / xyz.norm();
+      const float cos_normal_error = xyz_norm.dot(local_normal);
+      if (cos_normal_error < 0.015) {
+        continue;
+      }
+    }
 
     // Read the color of the pixel.
     BitmapColor<uint8_t> color;
