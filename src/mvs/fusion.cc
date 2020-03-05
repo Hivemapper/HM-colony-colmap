@@ -408,7 +408,7 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
     if (traversal_depth == 0) {
       const Eigen::Vector3f xyz_norm = xyz / xyz.norm();
       const float cos_normal_error = xyz_norm.dot(local_normal);
-      if (cos_normal_error > -0.01) {
+      if (cos_normal_error > -0.015) {
         continue;
       }
     }
