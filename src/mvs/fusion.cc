@@ -409,7 +409,7 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
       const Eigen::Vector3f xyz_norm = xyz / xyz.norm();
       const float cos_normal_error = xyz_norm.dot(local_normal);
       if (cos_normal_error > -0.025) {
-        std::cout << "Filtering normal with cos > -0.02.\n";
+        std::cout << "Filtering normal with cos > -0.025.\n";
         continue;
       }
     }
