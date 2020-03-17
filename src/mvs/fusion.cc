@@ -405,10 +405,12 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
     // This is likely not real geometry.
     // Only need to do this when looking for reference point. The normal check above
     // will take care of checking the rest
-    const Eigen::Vector3f xyz_norm = xyz / xyz.norm();
-    const float cos_normal_error = xyz_norm.dot(local_normal);
-    if (cos_normal_error > -0.02) {
-      continue;
+    if (traversal_depth == 0) {
+      const Eigen::Vector3f xyz_norm = xyz / xyz.norm();
+      const float cos_normal_error = xyz_norm.dot(local_normal);
+      if (cos_normal_error > -0.02) {
+        continue;
+      }
     }
 
     // Read the color of the pixel.
