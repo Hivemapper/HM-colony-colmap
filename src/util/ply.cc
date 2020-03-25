@@ -329,7 +329,7 @@ void WriteTextPlyPoints(const std::string& path,
 
 void WriteBinaryPlyPoints(const std::string& path,
                           const std::vector<PlyPoint>& points,
-                          const bool write_normal, const bool write_rgb) {
+                          const bool write_normal, const bool write_rgb, const bool write_metrics) {
   std::fstream text_file(path, std::ios::out);
   CHECK(text_file.is_open()) << path;
 
@@ -351,6 +351,10 @@ void WriteBinaryPlyPoints(const std::string& path,
     text_file << "property uchar red" << std::endl;
     text_file << "property uchar green" << std::endl;
     text_file << "property uchar blue" << std::endl;
+  }
+
+  if (write_metrics) {
+    text_file << "property list uchar float normal_cosine_angles" << std::endl;
   }
 
   text_file << "end_header" << std::endl;
@@ -375,6 +379,14 @@ void WriteBinaryPlyPoints(const std::string& path,
       WriteBinaryLittleEndian<uint8_t>(&binary_file, point.r);
       WriteBinaryLittleEndian<uint8_t>(&binary_file, point.g);
       WriteBinaryLittleEndian<uint8_t>(&binary_file, point.b);
+    }
+
+    if (write_metrics) {
+      CHECK_GT(point.metrics.num_points, 0);
+      WriteBinaryLittleEndian<uint8_t>(&binary_file, point.metrics.num_points);
+      for (const auto& angle : point.metrics.normal_cosine_angles) {
+        WriteBinaryLittleEndian<int>(&binary_file, angle);
+      }
     }
   }
 
