@@ -39,6 +39,12 @@
 
 namespace colmap {
 
+struct PlyPointMetric {
+  uint8_t num_points = 0;
+  std::vector<float> normal_cosine_angles;
+  std::vector<std::vector<float>> camera_camera_angles;
+}
+
 struct PlyPoint {
   float x = 0.0f;
   float y = 0.0f;
@@ -49,6 +55,7 @@ struct PlyPoint {
   uint8_t r = 0;
   uint8_t g = 0;
   uint8_t b = 0;
+  PlyPointMetric metrics;
 };
 
 struct PlyMeshVertex {
