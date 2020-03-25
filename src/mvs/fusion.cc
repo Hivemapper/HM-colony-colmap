@@ -194,6 +194,7 @@ void StereoFusion::Run() {
   bitmap_scales_.resize(model.images.size());
   P_.resize(model.images.size());
   inv_P_.resize(model.images.size());
+  inv_P_local_.resize(model.images.size());
   inv_R_.resize(model.images.size());
 
   const auto image_names = ReadTextFileLines(JoinPaths(
@@ -240,6 +241,10 @@ void StereoFusion::Run() {
                             P_.at(image_idx).data());
     ComposeInverseProjectionMatrix(K.data(), image.GetR(), image.GetT(),
                                    inv_P_.at(image_idx).data());
+
+    ComposeInverseProjectionMatrix(K.data(), I_R_, zero_T_,
+                                   inv_P_local.at(image_idx).data());
+
     inv_R_.at(image_idx) =
         Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>>(
             image.GetR())
@@ -332,6 +337,8 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
   fused_point_visibility_row.clear();
   fused_point_visibility_col.clear();
 
+  PlyPointMetric fused_metric {};
+
   while (!fusion_queue_.empty()) {
     const auto data = fusion_queue_.back();
     const int image_idx = data.image_idx;
@@ -401,17 +408,11 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
         inv_P_.at(image_idx) *
         Eigen::Vector4f(col * depth, row * depth, depth, 1.0f);
 
-    // Check that the normal is not perpendicular to the projection ray.
-    // This is likely not real geometry.
-    // Only need to do this when looking for reference point. The normal check above
-    // will take care of checking the rest
-    if (traversal_depth == 0) {
-      const Eigen::Vector3f xyz_norm = xyz / xyz.norm();
-      const float cos_normal_error = xyz_norm.dot(local_normal);
-      if (cos_normal_error > -0.02) {
-        continue;
-      }
-    }
+    const Eigen::Vector3f xyz_local =
+        inv_P_local.at(image_idx) *
+        Eigen::Vector4f(col * depth, row * depth, depth, 1.0f);
+    const Eigen::Vector3f xyz_norm = xyz_local / xyz_local.norm();
+    const float cos_normal_angle = xyz_norm.dot(local_normal);
 
     // Read the color of the pixel.
     BitmapColor<uint8_t> color;
@@ -432,6 +433,8 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
     fused_point_r_.push_back(color.r);
     fused_point_g_.push_back(color.g);
     fused_point_b_.push_back(color.b);
+
+    fused_metric.normal_cosine_angles.push_back(cos_normal_angle);
 
     // Use the COLMAP image index to get the image filename, then get the int
     // from the filename to get the proper frame_selection frame number
@@ -490,6 +493,7 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
   fusion_queue_.clear();
 
   const size_t num_pixels = fused_point_x_.size();
+  fused_metric.num_points = num_pixels;
   if (num_pixels >= static_cast<size_t>(options_.min_num_pixels)) {
     PlyPoint fused_point;
 
@@ -522,6 +526,7 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
     fused_points_visibility_.emplace_back(fused_point_visibility_.begin(),
                                           fused_point_visibility_.end());
 
+    //TODO: Calculate camera-to-camera angle if possible???
     // For each frame that sees this 3D point, add 3d point information: row,col
     // of 3d point in frame. 3d point ply index.
     for (auto& frame :
