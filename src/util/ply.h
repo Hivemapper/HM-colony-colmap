@@ -97,7 +97,8 @@ void WriteTextPlyPoints(const std::string& path,
 void WriteBinaryPlyPoints(const std::string& path,
                           const std::vector<PlyPoint>& points,
                           const bool write_normal = true,
-                          const bool write_rgb = true);
+                          const bool write_rgb = true,
+                          const bool write_metrics = true);
 
 // Write PLY mesh to text or binary file.
 void WriteTextPlyMesh(const std::string& path, const PlyMesh& mesh);
