@@ -43,7 +43,7 @@ struct PlyPointMetric {
   uint8_t num_points = 0;
   std::vector<float> normal_cosine_angles;
   std::vector<std::vector<float>> camera_camera_angles;
-}
+};
 
 struct PlyPoint {
   float x = 0.0f;
