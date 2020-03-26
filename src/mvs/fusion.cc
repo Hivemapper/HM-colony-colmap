@@ -243,7 +243,7 @@ void StereoFusion::Run() {
                                    inv_P_.at(image_idx).data());
 
     ComposeInverseProjectionMatrix(K.data(), I_R_, zero_T_,
-                                   inv_P_local.at(image_idx).data());
+                                   inv_P_local_.at(image_idx).data());
 
     inv_R_.at(image_idx) =
         Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>>(
@@ -409,7 +409,7 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
         Eigen::Vector4f(col * depth, row * depth, depth, 1.0f);
 
     const Eigen::Vector3f xyz_local =
-        inv_P_local.at(image_idx) *
+        inv_P_local_.at(image_idx) *
         Eigen::Vector4f(col * depth, row * depth, depth, 1.0f);
     const Eigen::Vector3f xyz_norm = xyz_local / xyz_local.norm();
     const float cos_normal_angle = xyz_norm.dot(local_normal);
