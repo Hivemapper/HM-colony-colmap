@@ -521,6 +521,8 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
     fused_point.b = TruncateCast<float, uint8_t>(
         std::round(internal::Median(&fused_point_b_)));
 
+    fused_point.metrics = fused_metric;
+
     int fusedPointIndex = fused_points_.size();
     fused_points_.push_back(fused_point);
     fused_points_visibility_.emplace_back(fused_point_visibility_.begin(),
