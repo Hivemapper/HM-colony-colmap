@@ -383,9 +383,10 @@ void WriteBinaryPlyPoints(const std::string& path,
 
     if (write_metrics) {
       CHECK_GT(point.metrics.num_points, 0);
+      CHECK_EQ(point.metrics.num_points, point.metrics.normal_cosine_angles.size());
       WriteBinaryLittleEndian<uint8_t>(&binary_file, point.metrics.num_points);
       for (const auto& angle : point.metrics.normal_cosine_angles) {
-        WriteBinaryLittleEndian<int>(&binary_file, angle);
+        WriteBinaryLittleEndian<float>(&binary_file, angle);
       }
     }
   }
