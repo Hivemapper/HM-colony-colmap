@@ -299,7 +299,7 @@ void StereoFusion::Run() {
     num_fused_images += 1;
     fused_images_.at(image_idx) = true;
 
-    std::cout << "Filtered " << temp_counter << " bad reference normals" << std::endl;
+    std::cout << "Filtered " << temp_counter << " bad normals" << std::endl;
 
     std::cout << StringPrintf(" in %.3fs (%d points)", timer.ElapsedSeconds(),
                               fused_points_.size())
@@ -412,15 +412,15 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
     // This is likely not real geometry.
     // Only need to do this when looking for reference point. The normal check above
     // will take care of checking the rest
-    if (traversal_depth == 0) {
-      const Eigen::Vector3f proj_ray = xyz - C_.at(image_idx);
-      const Eigen::Vector3f ray_norm = proj_ray / proj_ray.norm();
-      const float cos_normal_error = ray_norm.dot(local_normal);
-      if (cos_normal_error > -0.01) {
-        ++temp_counter;
-        continue;
-      }
+    // if (traversal_depth == 0) {
+    const Eigen::Vector3f proj_ray = xyz - C_.at(image_idx);
+    const Eigen::Vector3f ray_norm = proj_ray / proj_ray.norm();
+    const float cos_normal_error = ray_norm.dot(local_normal);
+    if (cos_normal_error > -0.01) {
+      ++temp_counter;
+      continue;
     }
+    // }
 
     // Read the color of the pixel.
     BitmapColor<uint8_t> color;
