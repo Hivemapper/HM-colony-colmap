@@ -195,7 +195,7 @@ void StereoFusion::Run() {
   P_.resize(model.images.size());
   inv_P_.resize(model.images.size());
   inv_R_.resize(model.images.size());
-  C_.resize(mode.images.size());
+  C_.resize(model.images.size());
 
   const auto image_names = ReadTextFileLines(JoinPaths(
       workspace_path_, workspace_options.stereo_folder, "fusion.cfg"));
@@ -243,7 +243,7 @@ void StereoFusion::Run() {
                                    inv_P_.at(image_idx).data());
 
 
-    ComputeProjectionCenter(image.getR(), image.getT(), C_.at(image_idx).data());
+    ComputeProjectionCenter(image.GetR(), image.GetT(), C_.at(image_idx).data());
 
     inv_R_.at(image_idx) =
         Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>>(
