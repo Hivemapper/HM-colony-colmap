@@ -143,6 +143,7 @@ class StereoFusion : public Thread {
   std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>> P_;
   std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>> inv_P_;
   std::vector<Eigen::Matrix<float, 3, 3, Eigen::RowMajor>> inv_R_;
+  std::vector<Eigen::Vector3f> C_;
 
   struct FusionData {
     int image_idx = kInvalidImageId;

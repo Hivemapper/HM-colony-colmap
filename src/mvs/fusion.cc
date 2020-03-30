@@ -195,6 +195,7 @@ void StereoFusion::Run() {
   P_.resize(model.images.size());
   inv_P_.resize(model.images.size());
   inv_R_.resize(model.images.size());
+  C_.resize(mode.images.size());
 
   const auto image_names = ReadTextFileLines(JoinPaths(
       workspace_path_, workspace_options.stereo_folder, "fusion.cfg"));
@@ -240,6 +241,10 @@ void StereoFusion::Run() {
                             P_.at(image_idx).data());
     ComposeInverseProjectionMatrix(K.data(), image.GetR(), image.GetT(),
                                    inv_P_.at(image_idx).data());
+
+
+    ComputeProjectionCenter(image.getR(), image.getT(), C_.at(image_idx).data());
+
     inv_R_.at(image_idx) =
         Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>>(
             image.GetR())
@@ -406,9 +411,10 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
     // Only need to do this when looking for reference point. The normal check above
     // will take care of checking the rest
     if (traversal_depth == 0) {
-      const Eigen::Vector3f xyz_norm = xyz / xyz.norm();
-      const float cos_normal_error = xyz_norm.dot(local_normal);
-      if (cos_normal_error > -0.02) {
+      const Eigen::Vector3f proj_ray = xyz - C_.at(image_idx);
+      const Eigen::Vector3f ray_norm = proj_ray / proj_ray.norm();
+      const float cos_normal_error = ray_norm.dot(local_normal);
+      if (cos_normal_error > -0.01) {
         continue;
       }
     }
