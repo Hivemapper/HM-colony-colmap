@@ -299,6 +299,8 @@ void StereoFusion::Run() {
     num_fused_images += 1;
     fused_images_.at(image_idx) = true;
 
+    std::cout << "Filtered " << temp_counter << " bad reference normals" << std::endl;
+
     std::cout << StringPrintf(" in %.3fs (%d points)", timer.ElapsedSeconds(),
                               fused_points_.size())
               << std::endl;
@@ -415,6 +417,7 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
       const Eigen::Vector3f ray_norm = proj_ray / proj_ray.norm();
       const float cos_normal_error = ray_norm.dot(local_normal);
       if (cos_normal_error > -0.01) {
+        ++temp_counter;
         continue;
       }
     }

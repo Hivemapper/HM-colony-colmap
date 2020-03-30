@@ -133,6 +133,10 @@ class StereoFusion : public Thread {
   const float max_squared_reproj_error_;
   const float min_cos_normal_error_;
 
+
+  //TODO: REMOVE ME
+  int temp_counter = 0;
+
   std::unique_ptr<Workspace> workspace_;
   std::vector<char> used_images_;
   std::vector<char> fused_images_;
