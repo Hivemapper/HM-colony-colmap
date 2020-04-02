@@ -354,6 +354,8 @@ void WriteBinaryPlyPoints(const std::string& path,
   }
 
   if (write_metrics) {
+    text_file << "property int angle_index" << std::endl;
+    text_file << "element normal_cosine_angle " << points.size() << std::endl;
     text_file << "property list uchar float normal_cosine_angles" << std::endl;
   }
 
@@ -364,6 +366,7 @@ void WriteBinaryPlyPoints(const std::string& path,
                            std::ios::out | std::ios::binary | std::ios::app);
   CHECK(binary_file.is_open()) << path;
 
+  int idx = 0;
   for (const auto& point : points) {
     WriteBinaryLittleEndian<float>(&binary_file, point.x);
     WriteBinaryLittleEndian<float>(&binary_file, point.y);
@@ -382,8 +385,14 @@ void WriteBinaryPlyPoints(const std::string& path,
     }
 
     if (write_metrics) {
-      CHECK_GT(point.metrics.num_points, 0);
-      CHECK_EQ(point.metrics.num_points, point.metrics.normal_cosine_angles.size());
+      WriteBinaryLittleEndian<uint8_t>(&binary_file, idx);
+    }
+
+    ++idx;
+  }
+
+  if (write_metrics) {
+    for (const auto& point : points) {
       WriteBinaryLittleEndian<uint8_t>(&binary_file, point.metrics.num_points);
       for (const auto& angle : point.metrics.normal_cosine_angles) {
         WriteBinaryLittleEndian<float>(&binary_file, angle);
