@@ -283,7 +283,7 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
 
 void WriteTextPlyPoints(const std::string& path,
                         const std::vector<PlyPoint>& points,
-                        const bool write_normal, const bool write_rgb) {
+                        const bool write_normal, const bool write_rgb, const bool write_metrics) {
   std::ofstream file(path);
   CHECK(file.is_open()) << path;
 
@@ -307,6 +307,12 @@ void WriteTextPlyPoints(const std::string& path,
     file << "property uchar blue" << std::endl;
   }
 
+  if (write_metrics) {
+    file << "element normal_cosine_angle " << points.size() << std::endl;
+    file << "property int vertex_index" << std::endl;
+    file << "property list uchar float angles" << std::endl;
+  }
+
   file << "end_header" << std::endl;
 
   for (const auto& point : points) {
@@ -324,6 +330,17 @@ void WriteTextPlyPoints(const std::string& path,
     file << std::endl;
   }
 
+  int idx = 0;
+  if (write_metrics) {
+    for (const auto& point : points) {
+      file << idx << " " << point.metrics.num_points;
+      for (const auto& angle : point.metrics.normal_cosine_angles) {
+        file << " " << angle;
+      }
+      file << std::endl;
+      ++idx;
+    }
+  }
   file.close();
 }
 
