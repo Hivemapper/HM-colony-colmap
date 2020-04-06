@@ -93,7 +93,7 @@ std::vector<PlyPoint> ReadPly(const std::string& path);
 void WriteTextPlyPoints(const std::string& path,
                         const std::vector<PlyPoint>& points,
                         const bool write_normal = true,
-                        const bool write_rgb = true
+                        const bool write_rgb = true,
                         const bool write_metrics = true);
 void WriteBinaryPlyPoints(const std::string& path,
                           const std::vector<PlyPoint>& points,
