@@ -181,11 +181,12 @@ class StereoFusion : public Thread {
 
   // Already fused points.
   std::vector<PlyPoint> fused_points_;
+  std::vector<PointMetrics> fused_points_metrics_;
   std::vector<std::vector<int>> fused_points_visibility_;
   std::map<int, FrameData> frame_number_to_3dlist_;
 
   // Points of different pixels of the current point to be fused.
-  PointMetrics fused_point_;
+  PointMetrics fused_point_metric_;
   // std::vector<float> fused_point_x_;
   // std::vector<float> fused_point_y_;
   // std::vector<float> fused_point_z_;
