@@ -324,18 +324,18 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
   Eigen::Vector4f fused_ref_point = Eigen::Vector4f::Zero();
   Eigen::Vector3f fused_ref_normal = Eigen::Vector3f::Zero();
 
-  fused_point_metric_.x_.clear();
-  fused_point_metric_.y_.clear();
-  fused_point_metric_.z_.clear();
-  fused_point_metric_.nx_.clear();
-  fused_point_metric_.ny_.clear();
-  fused_point_metric_.nz_.clear();
-  fused_point_metric_.px_.clear();
-  fused_point_metric_.py_.clear();
-  fused_point_metric_.pz_.clear();
-  fused_point_metric_.r_.clear();
-  fused_point_metric_.g_.clear();
-  fused_point_metric_.b_.clear();
+  fused_point_metric_.x.clear();
+  fused_point_metric_.y.clear();
+  fused_point_metric_.z.clear();
+  fused_point_metric_.nx.clear();
+  fused_point_metric_.ny.clear();
+  fused_point_metric_.nz.clear();
+  fused_point_metric_.px.clear();
+  fused_point_metric_.py.clear();
+  fused_point_metric_.pz.clear();
+  fused_point_metric_.r.clear();
+  fused_point_metric_.g.clear();
+  fused_point_metric_.b.clear();
 
   fused_point_visibility_.clear();
   fused_point_visibility_row.clear();
@@ -428,18 +428,18 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
     fused_pixel_mask.Set(row, col, true);
 
     // Accumulate statistics for fused point.
-    fused_point_metric_.x_.push_back(xyz(0));
-    fused_point_metric_.y_.push_back(xyz(1));
-    fused_point_metric_.z_.push_back(xyz(2));
-    fused_point_metric_.nx_.push_back(normal(0));
-    fused_point_metric_.ny_.push_back(normal(1));
-    fused_point_metric_.nz_.push_back(normal(2));
-    fused_point_metric_.px_.push_back(normal(0));
-    fused_point_metric_.py_.push_back(normal(1));
-    fused_point_metric_.pz_.push_back(normal(2));
-    fused_point_metric_.r_.push_back(color.r);
-    fused_point_metric_.g_.push_back(color.g);
-    fused_point_metric_.b_.push_back(color.b);
+    fused_point_metric_.x.push_back(xyz(0));
+    fused_point_metric_.y.push_back(xyz(1));
+    fused_point_metric_.z.push_back(xyz(2));
+    fused_point_metric_.nx.push_back(normal(0));
+    fused_point_metric_.ny.push_back(normal(1));
+    fused_point_metric_.nz.push_back(normal(2));
+    fused_point_metric_.px.push_back(normal(0));
+    fused_point_metric_.py.push_back(normal(1));
+    fused_point_metric_.pz.push_back(normal(2));
+    fused_point_metric_.r.push_back(color.r);
+    fused_point_metric_.g.push_back(color.g);
+    fused_point_metric_.b.push_back(color.b);
 
     // Use the COLMAP image index to get the image filename, then get the int
     // from the filename to get the proper frame_selection frame number
@@ -460,7 +460,7 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
       fused_ref_normal = normal;
     }
 
-    if (fused_point_metric_.x_.size() >= static_cast<size_t>(options_.max_num_pixels)) {
+    if (fused_point_metric_.x.size() >= static_cast<size_t>(options_.max_num_pixels)) {
       break;
     }
 
@@ -506,28 +506,28 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
     PlyPoint fused_point;
 
     Eigen::Vector3f fused_normal;
-    fused_normal.x() = internal::Median(&fused_point_metric_.nx_);
-    fused_normal.y() = internal::Median(&fused_point_metric_.ny_);
-    fused_normal.z() = internal::Median(&fused_point_metric_.nz_);
+    fused_normal.x() = internal::Median(&fused_point_metric_.nx);
+    fused_normal.y() = internal::Median(&fused_point_metric_.ny);
+    fused_normal.z() = internal::Median(&fused_point_metric_.nz);
     const float fused_normal_norm = fused_normal.norm();
     if (fused_normal_norm < std::numeric_limits<float>::epsilon()) {
       return;
     }
 
-    fused_point.x = internal::Median(&fused_point_metric_.x_);
-    fused_point.y = internal::Median(&fused_point_metric_.y_);
-    fused_point.z = internal::Median(&fused_point_metric_.z_);
+    fused_point.x = internal::Median(&fused_point_metric_.x);
+    fused_point.y = internal::Median(&fused_point_metric_.y);
+    fused_point.z = internal::Median(&fused_point_metric_.z);
 
     fused_point.nx = fused_normal.x() / fused_normal_norm;
     fused_point.ny = fused_normal.y() / fused_normal_norm;
     fused_point.nz = fused_normal.z() / fused_normal_norm;
 
     fused_point.r = TruncateCast<float, uint8_t>(
-        std::round(internal::Median(&fused_point_metric_.r_)));
+        std::round(internal::Median(&fused_point_metric_.r)));
     fused_point.g = TruncateCast<float, uint8_t>(
-        std::round(internal::Median(&fused_point_metric_.g_)));
+        std::round(internal::Median(&fused_point_metric_.g)));
     fused_point.b = TruncateCast<float, uint8_t>(
-        std::round(internal::Median(&fused_point_metric_.b_)));
+        std::round(internal::Median(&fused_point_metric_.b)));
 
     int fusedPointIndex = fused_points_.size();
     fused_points_.push_back(fused_point);
