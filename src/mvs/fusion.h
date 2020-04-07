@@ -69,7 +69,7 @@ struct FrameData {
 };
 
 struct PointMetrics {
-  size_t num_points = 0;
+  size_t num_pixels = 0;
   std::vector<float> x;
   std::vector<float> y;
   std::vector<float> z;
