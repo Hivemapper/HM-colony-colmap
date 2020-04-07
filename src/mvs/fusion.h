@@ -68,6 +68,22 @@ struct FrameData {
   std::vector<int> coord3dInd;
 };
 
+struct PointMetrics {
+  size_t num_points = 0;
+  std::vector<float> x;
+  std::vector<float> y;
+  std::vector<float> z;
+  std::vector<float> nx;
+  std::vector<float> ny;
+  std::vector<float> nz;
+  std::vector<float> px;
+  std::vector<float> py;
+  std::vector<float> pz;
+  std::vector<uint8_t> r;
+  std::vector<uint8_t> g;
+  std::vector<uint8_t> b;
+};
+
 struct StereoFusionOptions {
   // Maximum image size in either dimension.
   int max_image_size = -1;
