@@ -334,11 +334,10 @@ void WriteTextPlyPoints(const std::string& path,
       }
       file << std::endl;
     }
-  }
+
     file << std::endl;
   }
 
-  int idx = 0;
   file.close();
 }
 
