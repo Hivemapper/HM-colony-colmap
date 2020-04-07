@@ -39,12 +39,6 @@
 
 namespace colmap {
 
-struct PlyPointMetric {
-  size_t num_points = 0;
-  std::vector<float> normal_cosine_angles;
-  std::vector<std::vector<float>> camera_camera_angles;
-};
-
 struct PlyPoint {
   float x = 0.0f;
   float y = 0.0f;
@@ -55,7 +49,6 @@ struct PlyPoint {
   uint8_t r = 0;
   uint8_t g = 0;
   uint8_t b = 0;
-  PlyPointMetric metrics;
 };
 
 struct PlyMeshVertex {
@@ -93,13 +86,11 @@ std::vector<PlyPoint> ReadPly(const std::string& path);
 void WriteTextPlyPoints(const std::string& path,
                         const std::vector<PlyPoint>& points,
                         const bool write_normal = true,
-                        const bool write_rgb = true,
-                        const bool write_metrics = true);
+                        const bool write_rgb = true);
 void WriteBinaryPlyPoints(const std::string& path,
                           const std::vector<PlyPoint>& points,
                           const bool write_normal = true,
-                          const bool write_rgb = true,
-                          const bool write_metrics = true);
+                          const bool write_rgb = true);
 
 // Write PLY mesh to text or binary file.
 void WriteTextPlyMesh(const std::string& path, const PlyMesh& mesh);
