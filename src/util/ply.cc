@@ -328,11 +328,10 @@ void WriteTextPlyPoints(const std::string& path,
     }
 
     if (write_metrics) {
-      file << point.metrics.num_points;
+      file << " " << point.metrics.num_points;
       for (const auto& angle : point.metrics.normal_cosine_angles) {
         file << " " << angle;
       }
-      file << std::endl;
     }
 
     file << std::endl;
