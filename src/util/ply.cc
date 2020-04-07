@@ -419,7 +419,7 @@ void WriteBinaryPlyPoints(const std::string& path,
   //     }
   //     ++idx;
   //   }
-  }
+  // }
 
   binary_file.close();
 }
