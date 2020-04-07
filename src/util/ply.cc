@@ -308,9 +308,9 @@ void WriteTextPlyPoints(const std::string& path,
   }
 
   if (write_metrics) {
-    file << "element normal_cosine_angle " << points.size() << std::endl;
-    file << "property int vertex_index" << std::endl;
-    file << "property list uchar float angles" << std::endl;
+    // file << "element normal_cosine_angle " << points.size() << std::endl;
+    // file << "property int vertex_index" << std::endl;
+    file << "property list int float angles" << std::endl;
   }
 
   file << "end_header" << std::endl;
@@ -327,20 +327,18 @@ void WriteTextPlyPoints(const std::string& path,
            << static_cast<int>(point.g) << " " << static_cast<int>(point.b);
     }
 
-    file << std::endl;
-  }
-
-  int idx = 0;
-  if (write_metrics) {
-    for (const auto& point : points) {
-      file << idx << " " << point.metrics.normal_cosine_angles.size();
+    if (write_metrics) {
+      file << point.metrics.num_points;
       for (const auto& angle : point.metrics.normal_cosine_angles) {
         file << " " << angle;
       }
       file << std::endl;
-      ++idx;
     }
   }
+    file << std::endl;
+  }
+
+  int idx = 0;
   file.close();
 }
 
