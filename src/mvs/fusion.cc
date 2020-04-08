@@ -533,7 +533,7 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
 
     int fusedPointIndex = fused_points_.size();
     fused_points_.push_back(fused_point);
-    fused_points_metrics.push_back(fused_point_);
+    fused_points_metrics_.push_back(fused_point_metric_);
     fused_points_visibility_.emplace_back(fused_point_visibility_.begin(),
                                           fused_point_visibility_.end());
 
@@ -604,13 +604,13 @@ void WriteFusedPointsMetrics(
   // for (const auto& point : points) {
   for (size_t i = 0; i < points.size(); ++i) {
     PointMetrics point = points[i];
-    for (size_t j = 0; j < point.num_pixels.; ++j) {
+    for (size_t j = 0; j < point.num_pixels; ++j) {
       dataCSV << i << "," 
               << point.x[j] << "," << point.y[j] << "," << point.z[j] << ","
               << point.nx[j] << "," << point.ny[j] << "," << point.nz[j] << ","
               << point.px[j] << "," << point.py[j] << "," << point.pz[j] << ","
               << point.r[j] << "," << point.g[j] << "," << point.b[j]
-              << "\n"
+              << "\n";
     }
   }
   dataCSV.close();
