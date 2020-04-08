@@ -134,6 +134,7 @@ class StereoFusion : public Thread {
                const std::string& input_type);
 
   const std::vector<PlyPoint>& GetFusedPoints() const;
+  const std::vector<PointMetrics>& GetFusedPointsMetrics() const;
   const std::vector<std::vector<int>>& GetFusedPointsVisibility() const;
   const std::map<int, FrameData>& Get2d3dCorrespondenceData() const;
 
