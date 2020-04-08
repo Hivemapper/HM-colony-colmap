@@ -501,9 +501,6 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
 
   fused_point_metric_.num_pixels = fused_point_metric_.x.size();
   const size_t num_pixels = fused_point_metric_.num_pixels;
-  if (num_pixels > 15) {
-    std::cout << num_pixels << std::endl;
-  }
   if (num_pixels >= static_cast<size_t>(options_.min_num_pixels)) {
     PlyPoint fused_point;
 
