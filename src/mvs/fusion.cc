@@ -606,7 +606,7 @@ void WriteFusedPointsMetrics(
               << point.x[j] << "," << point.y[j] << "," << point.z[j] << ","
               << point.nx[j] << "," << point.ny[j] << "," << point.nz[j] << ","
               << point.px[j] << "," << point.py[j] << "," << point.pz[j] << ","
-              << static_cast<int>point.r[j] << "," << static_cast<int>point.g[j] << "," << static_cast<int>point.b[j]
+              << static_cast<int>(point.r[j]) << "," << static_cast<int>(point.g[j]) << "," << static_cast<int>(point.b[j])
               << "\n";
     }
   }
