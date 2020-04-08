@@ -246,8 +246,7 @@ void StereoFusion::Run() {
     ComposeInverseProjectionMatrix(K.data(), image.GetR(), image.GetT(),
                                    inv_P_.at(image_idx).data());
 
-    ComposeInverseProjectionMatrix(K.data(), I_R_, zero_T_,
-                                   inv_P_local_.at(image_idx).data());
+    ComputeProjectionCenter(image.GetR(), image.GetT(), C_.at(image_idx));
 
     inv_R_.at(image_idx) =
         Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>>(
@@ -396,10 +395,11 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
 
     // Determine normal direction in global reference frame.
     const auto& normal_map = workspace_->GetNormalMap(image_idx);
-    const Eigen::Vector3f local_normal = Eigen::Vector3f(normal_map.Get(row, col, 0),
-                                                         normal_map.Get(row, col, 1),
-                                                         normal_map.Get(row, col, 2));
-    const Eigen::Vector3f normal = inv_R_.at(image_idx) * local_normal;
+    const Eigen::Vector3f normal = inv_R_.at(image_idx) * 
+                                    Eigen::Vector3f(normal_map.Get(row, col, 0),
+                                                    normal_map.Get(row, col, 1),
+                                                    normal_map.Get(row, col, 2));
+
 
     // Check for consistent normal direction with reference normal.
     if (traversal_depth > 0) {
@@ -414,11 +414,7 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
         inv_P_.at(image_idx) *
         Eigen::Vector4f(col * depth, row * depth, depth, 1.0f);
 
-    const Eigen::Vector3f xyz_local =
-        inv_P_local_.at(image_idx) *
-        Eigen::Vector4f(col * depth, row * depth, depth, 1.0f);
-    const Eigen::Vector3f xyz_norm = xyz_local / xyz_local.norm();
-    const Eigen::Vector3f proj_ray = inv_R_.at(image_idx) * xyz_norm;
+    const Eigen::Vector3f proj_ray = xyz - C_.at(image_idx);
 
     // Read the color of the pixel.
     BitmapColor<uint8_t> color;
