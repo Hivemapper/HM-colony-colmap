@@ -221,7 +221,12 @@ void Write2d3dCorrespondenceData(
     const std::string& DataPath, const std::string& MetaDataPath,
     const std::map<int, FrameData>& correspondenceData);
 
+void WriteFusedPointsMetrics(
+  const std::string& path,
+  const std::vector<PointMetrics>& points);
+
 int getFrameNumberFromFilename(std::string& frameFileName);
+
 }  // namespace mvs
 }  // namespace colmap
 

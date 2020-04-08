@@ -142,6 +142,10 @@ const std::map<int, FrameData>& StereoFusion::Get2d3dCorrespondenceData()
   return frame_number_to_3dlist_;
 }
 
+const std::vector<PointMetrics>& StereoFusion::GetFusedPointsMetrics() const {
+  return fused_points_metrics_;
+}
+
 void StereoFusion::Run() {
   fused_points_.clear();
   fused_points_visibility_.clear();
@@ -341,8 +345,6 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
   fused_point_visibility_row.clear();
   fused_point_visibility_col.clear();
 
-  PlyPointMetric fused_metric {};
-
   while (!fusion_queue_.empty()) {
     const auto data = fusion_queue_.back();
     const int image_idx = data.image_idx;
@@ -416,7 +418,7 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
         inv_P_local_.at(image_idx) *
         Eigen::Vector4f(col * depth, row * depth, depth, 1.0f);
     const Eigen::Vector3f xyz_norm = xyz_local / xyz_local.norm();
-    const float cos_normal_angle = xyz_norm.dot(local_normal);
+    const Eigen::Vector3f proj_ray = inv_R_.at(image_idx) * xyz_norm;
 
     // Read the color of the pixel.
     BitmapColor<uint8_t> color;
@@ -434,9 +436,9 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
     fused_point_metric_.nx.push_back(normal(0));
     fused_point_metric_.ny.push_back(normal(1));
     fused_point_metric_.nz.push_back(normal(2));
-    fused_point_metric_.px.push_back(normal(0));
-    fused_point_metric_.py.push_back(normal(1));
-    fused_point_metric_.pz.push_back(normal(2));
+    fused_point_metric_.px.push_back(proj_ray(0));
+    fused_point_metric_.py.push_back(proj_ray(1));
+    fused_point_metric_.pz.push_back(proj_ray(2));
     fused_point_metric_.r.push_back(color.r);
     fused_point_metric_.g.push_back(color.g);
     fused_point_metric_.b.push_back(color.b);
@@ -587,6 +589,31 @@ void Write2d3dCorrespondenceData(
   }
   dataCSV.close();
   metadataCSV.close();
+}
+
+void WriteFusedPointsMetrics(
+    const std::string& DataPath, 
+    const std::vector<PointMetrics>& points) {
+  // Open the data file
+  std::fstream dataCSV(DataPath, std::ios::out);
+  CHECK(dataCSV.is_open()) << DataPath;
+
+  dataCSV << "PointIndex,x,y,z,nx,ny,nz,px,py,pz,r,g,b\n";
+
+  // Fill the CSV file frame by frame
+  // for (const auto& point : points) {
+  for (size_t i = 0; i < points.size(); ++i) {
+    PointMetrics point = points[i];
+    for (size_t j = 0; j < point.num_pixels.; ++j) {
+      dataCSV << i << "," 
+              << point.x[j] << "," << point.y[j] << "," << point.z[j] << ","
+              << point.nx[j] << "," << point.ny[j] << "," << point.nz[j] << ","
+              << point.px[j] << "," << point.py[j] << "," << point.pz[j] << ","
+              << point.r[j] << "," << point.g[j] << "," << point.b[j]
+              << "\n"
+    }
+  }
+  dataCSV.close();
 }
 
 int getFrameNumberFromFilename(std::string& frameFileName) {
