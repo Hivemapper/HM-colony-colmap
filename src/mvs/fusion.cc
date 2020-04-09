@@ -198,8 +198,8 @@ void StereoFusion::Run() {
   bitmap_scales_.resize(model.images.size());
   P_.resize(model.images.size());
   inv_P_.resize(model.images.size());
-  inv_P_local_.resize(model.images.size());
   inv_R_.resize(model.images.size());
+  C_.resize(model.images.size());
 
   const auto image_names = ReadTextFileLines(JoinPaths(
       workspace_path_, workspace_options.stereo_folder, "fusion.cfg"));
@@ -327,6 +327,9 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
   Eigen::Vector4f fused_ref_point = Eigen::Vector4f::Zero();
   Eigen::Vector3f fused_ref_normal = Eigen::Vector3f::Zero();
 
+  fused_point_nx_.clear();
+  fused_point_ny_.clear();
+  fused_point_nz_.clear();
   fused_point_metric_.x.clear();
   fused_point_metric_.y.clear();
   fused_point_metric_.z.clear();
