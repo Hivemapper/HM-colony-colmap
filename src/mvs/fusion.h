@@ -162,11 +162,6 @@ class StereoFusion : public Thread {
   std::vector<Eigen::Matrix<float, 3, 3, Eigen::RowMajor>> inv_R_;
   std::vector<Eigen::Vector3f> C_;
 
-  const float I_R_[9] = {1,0,0,
-                         0,1,0,
-                         0,0,1};
-  const float zero_T_[3] = {0,0,0};
-
   struct FusionData {
     int image_idx = kInvalidImageId;
     int row = 0;

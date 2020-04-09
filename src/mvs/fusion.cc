@@ -321,7 +321,7 @@ void StereoFusion::Run() {
   GetTimer().PrintMinutes();
 }
 
-void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
+void StereoFusion::Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
   CHECK_EQ(fusion_queue_.size(), 1);
 
   Eigen::Vector4f fused_ref_point = Eigen::Vector4f::Zero();
@@ -398,7 +398,7 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
 
     // Determine normal direction in global reference frame.
     const auto& normal_map = workspace_->GetNormalMap(image_idx);
-    const Eigen::Vector3f normal = 
+    const Eigen::Vector3f normal =
         inv_R_.at(image_idx) * Eigen::Vector3f(normal_map.Get(row, col, 0),
                                                normal_map.Get(row, col, 1),
                                                normal_map.Get(row, col, 2));
@@ -406,7 +406,7 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
 
     // Check for consistent normal direction with reference normal.
     if (traversal_depth > 0) {
-      const float cos_normal_error = fused_ref_normal.dot(normal_unit);
+      const float cos_normal_error = fused_ref_normal.dot(normal);
       if (cos_normal_error < min_cos_normal_error_) {
         continue;
       }
@@ -464,7 +464,7 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
     // Remember the first pixel as the reference.
     if (traversal_depth == 0) {
       fused_ref_point = Eigen::Vector4f(xyz(0), xyz(1), xyz(2), 1.0f);
-      fused_ref_normal = normal_unit;
+      fused_ref_normal = normal;
     }
 
     if (fused_point_metric_.x.size() >= static_cast<size_t>(options_.max_num_pixels)) {
