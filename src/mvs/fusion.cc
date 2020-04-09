@@ -142,6 +142,10 @@ const std::map<int, FrameData>& StereoFusion::Get2d3dCorrespondenceData()
   return frame_number_to_3dlist_;
 }
 
+const std::vector<PointMetrics>& StereoFusion::GetFusedPointsMetrics() const {
+  return fused_points_metrics_;
+}
+
 void StereoFusion::Run() {
   fused_points_.clear();
   fused_points_visibility_.clear();
@@ -195,6 +199,7 @@ void StereoFusion::Run() {
   P_.resize(model.images.size());
   inv_P_.resize(model.images.size());
   inv_R_.resize(model.images.size());
+  C_.resize(model.images.size());
 
   const auto image_names = ReadTextFileLines(JoinPaths(
       workspace_path_, workspace_options.stereo_folder, "fusion.cfg"));
@@ -240,6 +245,9 @@ void StereoFusion::Run() {
                             P_.at(image_idx).data());
     ComposeInverseProjectionMatrix(K.data(), image.GetR(), image.GetT(),
                                    inv_P_.at(image_idx).data());
+
+    ComputeProjectionCenter(image.GetR(), image.GetT(), C_.at(image_idx).data());
+
     inv_R_.at(image_idx) =
         Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>>(
             image.GetR())
@@ -319,15 +327,22 @@ void StereoFusion::Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
   Eigen::Vector4f fused_ref_point = Eigen::Vector4f::Zero();
   Eigen::Vector3f fused_ref_normal = Eigen::Vector3f::Zero();
 
-  fused_point_x_.clear();
-  fused_point_y_.clear();
-  fused_point_z_.clear();
   fused_point_nx_.clear();
   fused_point_ny_.clear();
   fused_point_nz_.clear();
-  fused_point_r_.clear();
-  fused_point_g_.clear();
-  fused_point_b_.clear();
+  fused_point_metric_.x.clear();
+  fused_point_metric_.y.clear();
+  fused_point_metric_.z.clear();
+  fused_point_metric_.nx.clear();
+  fused_point_metric_.ny.clear();
+  fused_point_metric_.nz.clear();
+  fused_point_metric_.px.clear();
+  fused_point_metric_.py.clear();
+  fused_point_metric_.pz.clear();
+  fused_point_metric_.r.clear();
+  fused_point_metric_.g.clear();
+  fused_point_metric_.b.clear();
+
   fused_point_visibility_.clear();
   fused_point_visibility_row.clear();
   fused_point_visibility_col.clear();
@@ -387,6 +402,7 @@ void StereoFusion::Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
         inv_R_.at(image_idx) * Eigen::Vector3f(normal_map.Get(row, col, 0),
                                                normal_map.Get(row, col, 1),
                                                normal_map.Get(row, col, 2));
+    const Eigen::Vector3f normal_unit = normal / normal.norm();
 
     // Check for consistent normal direction with reference normal.
     if (traversal_depth > 0) {
@@ -401,6 +417,10 @@ void StereoFusion::Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
         inv_P_.at(image_idx) *
         Eigen::Vector4f(col * depth, row * depth, depth, 1.0f);
 
+    // Calculate projection ray in global frame
+    const Eigen::Vector3f proj_ray = xyz - C_.at(image_idx);
+    const Eigen::Vector3f proj_ray_unit = proj_ray / proj_ray.norm();
+
     // Read the color of the pixel.
     BitmapColor<uint8_t> color;
     const auto& bitmap_scale = bitmap_scales_.at(image_idx);
@@ -411,15 +431,22 @@ void StereoFusion::Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
     fused_pixel_mask.Set(row, col, true);
 
     // Accumulate statistics for fused point.
-    fused_point_x_.push_back(xyz(0));
-    fused_point_y_.push_back(xyz(1));
-    fused_point_z_.push_back(xyz(2));
+    // Save full normal for future use
     fused_point_nx_.push_back(normal(0));
     fused_point_ny_.push_back(normal(1));
     fused_point_nz_.push_back(normal(2));
-    fused_point_r_.push_back(color.r);
-    fused_point_g_.push_back(color.g);
-    fused_point_b_.push_back(color.b);
+    fused_point_metric_.x.push_back(xyz(0));
+    fused_point_metric_.y.push_back(xyz(1));
+    fused_point_metric_.z.push_back(xyz(2));
+    fused_point_metric_.nx.push_back(normal_unit(0));
+    fused_point_metric_.ny.push_back(normal_unit(1));
+    fused_point_metric_.nz.push_back(normal_unit(2));
+    fused_point_metric_.px.push_back(proj_ray_unit(0));
+    fused_point_metric_.py.push_back(proj_ray_unit(1));
+    fused_point_metric_.pz.push_back(proj_ray_unit(2));
+    fused_point_metric_.r.push_back(color.r);
+    fused_point_metric_.g.push_back(color.g);
+    fused_point_metric_.b.push_back(color.b);
 
     // Use the COLMAP image index to get the image filename, then get the int
     // from the filename to get the proper frame_selection frame number
@@ -440,7 +467,7 @@ void StereoFusion::Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
       fused_ref_normal = normal;
     }
 
-    if (fused_point_x_.size() >= static_cast<size_t>(options_.max_num_pixels)) {
+    if (fused_point_metric_.x.size() >= static_cast<size_t>(options_.max_num_pixels)) {
       break;
     }
 
@@ -477,7 +504,8 @@ void StereoFusion::Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
 
   fusion_queue_.clear();
 
-  const size_t num_pixels = fused_point_x_.size();
+  fused_point_metric_.num_pixels = fused_point_metric_.x.size();
+  const size_t num_pixels = fused_point_metric_.num_pixels;
   if (num_pixels >= static_cast<size_t>(options_.min_num_pixels)) {
     PlyPoint fused_point;
 
@@ -490,23 +518,24 @@ void StereoFusion::Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
       return;
     }
 
-    fused_point.x = internal::Median(&fused_point_x_);
-    fused_point.y = internal::Median(&fused_point_y_);
-    fused_point.z = internal::Median(&fused_point_z_);
+    fused_point.x = internal::Median(&fused_point_metric_.x);
+    fused_point.y = internal::Median(&fused_point_metric_.y);
+    fused_point.z = internal::Median(&fused_point_metric_.z);
 
     fused_point.nx = fused_normal.x() / fused_normal_norm;
     fused_point.ny = fused_normal.y() / fused_normal_norm;
     fused_point.nz = fused_normal.z() / fused_normal_norm;
 
     fused_point.r = TruncateCast<float, uint8_t>(
-        std::round(internal::Median(&fused_point_r_)));
+        std::round(internal::Median(&fused_point_metric_.r)));
     fused_point.g = TruncateCast<float, uint8_t>(
-        std::round(internal::Median(&fused_point_g_)));
+        std::round(internal::Median(&fused_point_metric_.g)));
     fused_point.b = TruncateCast<float, uint8_t>(
-        std::round(internal::Median(&fused_point_b_)));
+        std::round(internal::Median(&fused_point_metric_.b)));
 
     int fusedPointIndex = fused_points_.size();
     fused_points_.push_back(fused_point);
+    fused_points_metrics_.push_back(fused_point_metric_);
     fused_points_visibility_.emplace_back(fused_point_visibility_.begin(),
                                           fused_point_visibility_.end());
 
@@ -562,6 +591,30 @@ void Write2d3dCorrespondenceData(
   }
   dataCSV.close();
   metadataCSV.close();
+}
+
+void WriteFusedPointsMetrics(
+    const std::string& DataPath, 
+    const std::vector<PointMetrics>& points) {
+  // Open the data file
+  std::fstream dataCSV(DataPath, std::ios::out);
+  CHECK(dataCSV.is_open()) << DataPath;
+
+  dataCSV << "PointIndex,x,y,z,nx,ny,nz,px,py,pz,r,g,b\n";
+
+  // Fill the CSV file
+  for (size_t i = 0; i < points.size(); ++i) {
+    PointMetrics point = points[i];
+    for (size_t j = 0; j < point.num_pixels; ++j) {
+      dataCSV << i << "," 
+              << point.x[j] << "," << point.y[j] << "," << point.z[j] << ","
+              << point.nx[j] << "," << point.ny[j] << "," << point.nz[j] << ","
+              << point.px[j] << "," << point.py[j] << "," << point.pz[j] << ","
+              << static_cast<int>(point.r[j]) << "," << static_cast<int>(point.g[j]) << "," << static_cast<int>(point.b[j])
+              << "\n";
+    }
+  }
+  dataCSV.close();
 }
 
 int getFrameNumberFromFilename(std::string& frameFileName) {

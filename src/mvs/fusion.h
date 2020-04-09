@@ -68,6 +68,22 @@ struct FrameData {
   std::vector<int> coord3dInd;
 };
 
+struct PointMetrics {
+  size_t num_pixels = 0;
+  std::vector<float> x;
+  std::vector<float> y;
+  std::vector<float> z;
+  std::vector<float> nx;
+  std::vector<float> ny;
+  std::vector<float> nz;
+  std::vector<float> px;
+  std::vector<float> py;
+  std::vector<float> pz;
+  std::vector<uint8_t> r;
+  std::vector<uint8_t> g;
+  std::vector<uint8_t> b;
+};
+
 struct StereoFusionOptions {
   // Maximum image size in either dimension.
   int max_image_size = -1;
@@ -118,6 +134,7 @@ class StereoFusion : public Thread {
                const std::string& input_type);
 
   const std::vector<PlyPoint>& GetFusedPoints() const;
+  const std::vector<PointMetrics>& GetFusedPointsMetrics() const;
   const std::vector<std::vector<int>>& GetFusedPointsVisibility() const;
   const std::map<int, FrameData>& Get2d3dCorrespondenceData() const;
 
@@ -143,6 +160,7 @@ class StereoFusion : public Thread {
   std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>> P_;
   std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>> inv_P_;
   std::vector<Eigen::Matrix<float, 3, 3, Eigen::RowMajor>> inv_R_;
+  std::vector<Eigen::Vector3f> C_;
 
   struct FusionData {
     int image_idx = kInvalidImageId;
@@ -159,19 +177,15 @@ class StereoFusion : public Thread {
 
   // Already fused points.
   std::vector<PlyPoint> fused_points_;
+  std::vector<PointMetrics> fused_points_metrics_;
   std::vector<std::vector<int>> fused_points_visibility_;
   std::map<int, FrameData> frame_number_to_3dlist_;
 
   // Points of different pixels of the current point to be fused.
-  std::vector<float> fused_point_x_;
-  std::vector<float> fused_point_y_;
-  std::vector<float> fused_point_z_;
+  PointMetrics fused_point_metric_;
   std::vector<float> fused_point_nx_;
   std::vector<float> fused_point_ny_;
   std::vector<float> fused_point_nz_;
-  std::vector<uint8_t> fused_point_r_;
-  std::vector<uint8_t> fused_point_g_;
-  std::vector<uint8_t> fused_point_b_;
   std::unordered_set<int> fused_point_visibility_;
   std::map<int, int> fused_point_visibility_row;
   std::map<int, int> fused_point_visibility_col;
@@ -197,7 +211,12 @@ void Write2d3dCorrespondenceData(
     const std::string& DataPath, const std::string& MetaDataPath,
     const std::map<int, FrameData>& correspondenceData);
 
+void WriteFusedPointsMetrics(
+  const std::string& path,
+  const std::vector<PointMetrics>& points);
+
 int getFrameNumberFromFilename(std::string& frameFileName);
+
 }  // namespace mvs
 }  // namespace colmap
 
