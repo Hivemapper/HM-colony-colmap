@@ -246,7 +246,7 @@ void StereoFusion::Run() {
     ComposeInverseProjectionMatrix(K.data(), image.GetR(), image.GetT(),
                                    inv_P_.at(image_idx).data());
 
-    ComputeProjectionCenter(image.GetR(), image.GetT(), C_.at(image_idx));
+    ComputeProjectionCenter(image.GetR(), image.GetT(), C_.at(image_idx).data());
 
     inv_R_.at(image_idx) =
         Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>>(
