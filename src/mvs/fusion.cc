@@ -395,15 +395,15 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
 
     // Determine normal direction in global reference frame.
     const auto& normal_map = workspace_->GetNormalMap(image_idx);
-    const Eigen::Vector3f normal = inv_R_.at(image_idx) * 
-                                    Eigen::Vector3f(normal_map.Get(row, col, 0),
-                                                    normal_map.Get(row, col, 1),
-                                                    normal_map.Get(row, col, 2));
-
+    const Eigen::Vector3f normal = 
+        inv_R_.at(image_idx) * Eigen::Vector3f(normal_map.Get(row, col, 0),
+                                               normal_map.Get(row, col, 1),
+                                               normal_map.Get(row, col, 2));
+    const Eigen::Vector3f normal_unit = normal / normal.norm();
 
     // Check for consistent normal direction with reference normal.
     if (traversal_depth > 0) {
-      const float cos_normal_error = fused_ref_normal.dot(normal);
+      const float cos_normal_error = fused_ref_normal.dot(normal_unit);
       if (cos_normal_error < min_cos_normal_error_) {
         continue;
       }
@@ -414,7 +414,9 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
         inv_P_.at(image_idx) *
         Eigen::Vector4f(col * depth, row * depth, depth, 1.0f);
 
+    // Calculate projection ray in global frame
     const Eigen::Vector3f proj_ray = xyz - C_.at(image_idx);
+    const Eigen::Vector3f proj_ray_unit = proj_ray / proj_ray.norm();
 
     // Read the color of the pixel.
     BitmapColor<uint8_t> color;
@@ -426,15 +428,19 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
     fused_pixel_mask.Set(row, col, true);
 
     // Accumulate statistics for fused point.
+    // Save full normal for future use
+    fused_point_nx_.push_back(normal(0));
+    fused_point_ny_.push_back(normal(1));
+    fused_point_nz_.push_back(normal(2));
     fused_point_metric_.x.push_back(xyz(0));
     fused_point_metric_.y.push_back(xyz(1));
     fused_point_metric_.z.push_back(xyz(2));
-    fused_point_metric_.nx.push_back(normal(0));
-    fused_point_metric_.ny.push_back(normal(1));
-    fused_point_metric_.nz.push_back(normal(2));
-    fused_point_metric_.px.push_back(proj_ray(0));
-    fused_point_metric_.py.push_back(proj_ray(1));
-    fused_point_metric_.pz.push_back(proj_ray(2));
+    fused_point_metric_.nx.push_back(normal_unit(0));
+    fused_point_metric_.ny.push_back(normal_unit(1));
+    fused_point_metric_.nz.push_back(normal_unit(2));
+    fused_point_metric_.px.push_back(proj_ray_unit(0));
+    fused_point_metric_.py.push_back(proj_ray_unit(1));
+    fused_point_metric_.pz.push_back(proj_ray_unit(2));
     fused_point_metric_.r.push_back(color.r);
     fused_point_metric_.g.push_back(color.g);
     fused_point_metric_.b.push_back(color.b);
@@ -455,7 +461,7 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
     // Remember the first pixel as the reference.
     if (traversal_depth == 0) {
       fused_ref_point = Eigen::Vector4f(xyz(0), xyz(1), xyz(2), 1.0f);
-      fused_ref_normal = normal;
+      fused_ref_normal = normal_unit;
     }
 
     if (fused_point_metric_.x.size() >= static_cast<size_t>(options_.max_num_pixels)) {
@@ -501,9 +507,9 @@ void StereoFusion:: Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
     PlyPoint fused_point;
 
     Eigen::Vector3f fused_normal;
-    fused_normal.x() = internal::Median(&fused_point_metric_.nx);
-    fused_normal.y() = internal::Median(&fused_point_metric_.ny);
-    fused_normal.z() = internal::Median(&fused_point_metric_.nz);
+    fused_normal.x() = internal::Median(&fused_point_nx_);
+    fused_normal.y() = internal::Median(&fused_point_ny_);
+    fused_normal.z() = internal::Median(&fused_point_nz_);
     const float fused_normal_norm = fused_normal.norm();
     if (fused_normal_norm < std::numeric_limits<float>::epsilon()) {
       return;
