@@ -320,6 +320,8 @@ void WriteTextPlyPoints(const std::string& path,
       file << " " << static_cast<int>(point.r) << " "
            << static_cast<int>(point.g) << " " << static_cast<int>(point.b);
     }
+
+    file << std::endl;
   }
 
   file.close();
