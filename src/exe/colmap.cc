@@ -312,8 +312,8 @@ int RunStereoFuser(int argc, char** argv) {
   fuser.Wait();
 
   std::cout << "Writing output ply: " << output_path << std::endl;
-  // WriteBinaryPlyPoints(output_path, fuser.GetFusedPoints());
-  WriteTextPlyPoints(output_path, fuser.GetFusedPoints());
+  WriteBinaryPlyPoints(output_path, fuser.GetFusedPoints());
+  // WriteTextPlyPoints(output_path, fuser.GetFusedPoints());
   std::cout << "Writing 2D/3D correspondence files: " << output_path + "_correspondence-data.csv, and " << output_path + "_correspondence-metadata.csv" << std::endl;
   mvs::Write2d3dCorrespondenceData(output_path + "_correspondence-data.csv",
                                    output_path + "_correspondence-metadata.csv",
