@@ -602,8 +602,7 @@ void WriteFusedPointsMetrics(
 
   dataCSV << "PointIndex,x,y,z,nx,ny,nz,px,py,pz,r,g,b\n";
 
-  // Fill the CSV file frame by frame
-  // for (const auto& point : points) {
+  // Fill the CSV file
   for (size_t i = 0; i < points.size(); ++i) {
     PointMetrics point = points[i];
     for (size_t j = 0; j < point.num_pixels; ++j) {
