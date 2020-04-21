@@ -116,6 +116,12 @@ struct StereoFusionOptions {
   // consume a lot of memory, if the consistency graph is dense.
   double cache_size = 32.0;
 
+  // Output metrics
+  bool coord_metrics = false;
+  bool normal_metrics = false;
+  bool view_ray_metrics = false;
+  bool color_metrics = false;
+
   // Check the options for validity.
   bool Check() const;
 

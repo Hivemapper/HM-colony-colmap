@@ -595,23 +595,48 @@ void Write2d3dCorrespondenceData(
 
 void WriteFusedPointsMetrics(
     const std::string& DataPath, 
-    const std::vector<PointMetrics>& points) {
+    const std::vector<PointMetrics>& points,
+    const StereoFusionOptions& options) {
   // Open the data file
+  if (!options.coord_metrics && !options.normal_metrics && !options.view_ray_metrics && !options.color_metrics) {
+    return;
+  }
   std::fstream dataCSV(DataPath, std::ios::out);
   CHECK(dataCSV.is_open()) << DataPath;
 
-  dataCSV << "PointIndex,x,y,z,nx,ny,nz,px,py,pz,r,g,b\n";
+  dataCSV << "PointIndex";
+  if (options.coord_metrics) {
+    dataCSV << ",x,y,z";
+  }
+  if (options.normal_metrics) {
+    dataCSV << ",nx,ny,nz";
+  }
+  if (options.view_ray_metrics) {
+    dataCSV << ",px,py,pz";
+  }
+  if (options.color_metrics) {
+    dataCSV << ",r,g,b";
+  }
+  dataCSV << "\n";
 
   // Fill the CSV file
   for (size_t i = 0; i < points.size(); ++i) {
     PointMetrics point = points[i];
     for (size_t j = 0; j < point.num_pixels; ++j) {
-      dataCSV << i << "," 
-              << point.x[j] << "," << point.y[j] << "," << point.z[j] << ","
-              << point.nx[j] << "," << point.ny[j] << "," << point.nz[j] << ","
-              << point.px[j] << "," << point.py[j] << "," << point.pz[j] << ","
-              << static_cast<int>(point.r[j]) << "," << static_cast<int>(point.g[j]) << "," << static_cast<int>(point.b[j])
-              << "\n";
+      dataCSV << i; 
+      if (options.coord_metrics) {
+        dataCSV << "," << point.x[j] << "," << point.y[j] << "," << point.z[j] << ",";
+      }
+      if (options.normal_metrics) {
+        dataCSV << "," << point.nx[j] << "," << point.ny[j] << "," << point.nz[j] << ",";
+      }
+      if (options.view_ray_metrics) {
+        dataCSV << "," << point.px[j] << "," << point.py[j] << "," << point.pz[j] << ",";
+      }
+      if (options.color_metrics) {
+        dataCSV << "," << static_cast<int>(point.r[j]) << "," << static_cast<int>(point.g[j]) << "," << static_cast<int>(point.b[j]);
+      }
+      dataCSV << "\n";
     }
   }
   dataCSV.close();

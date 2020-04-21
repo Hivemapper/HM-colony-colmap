@@ -319,7 +319,7 @@ int RunStereoFuser(int argc, char** argv) {
                                    output_path + "_correspondence-metadata.csv",
                                    fuser.Get2d3dCorrespondenceData());
   std::cout << "Wrting fused point metrics: " << output_path + "_fused-point-metrics.csv" << std::endl;
-  mvs::WriteFusedPointsMetrics(output_path + "_fused-point-metrics.csv", fuser.GetFusedPointsMetrics());
+  mvs::WriteFusedPointsMetrics(output_path + "_fused-point-metrics.csv", fuser.GetFusedPointsMetrics(), *options.stereo_fusion);
   // VV Necessary for Delaunay meshing apparently VV
   mvs::WritePointsVisibility(output_path + ".vis",
                            fuser.GetFusedPointsVisibility());
