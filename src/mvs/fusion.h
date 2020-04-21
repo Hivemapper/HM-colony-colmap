@@ -219,7 +219,8 @@ void Write2d3dCorrespondenceData(
 
 void WriteFusedPointsMetrics(
   const std::string& path,
-  const std::vector<PointMetrics>& points);
+  const std::vector<PointMetrics>& points,
+  const StereoFusionOptions& options);
 
 int getFrameNumberFromFilename(std::string& frameFileName);
 
