@@ -639,6 +639,14 @@ void OptionManager::AddStereoFusionOptions() {
                               &stereo_fusion->check_num_images);
   AddAndRegisterDefaultOption("StereoFusion.cache_size",
                               &stereo_fusion->cache_size);
+  AddAndRegisterDefaultOption("StereoFusion.coordinate_metrics",
+                              &stereo_fusion->coord_metrics);
+  AddAndRegisterDefaultOption("StereoFusion.normal_metrics",
+                              &stereo_fusion->normal_metrics);
+  AddAndRegisterDefaultOption("StereoFusion.view_ray_metrics",
+                              &stereo_fusion->view_ray_metrics);
+  AddAndRegisterDefaultOption("StereoFusion.color_metrics",
+                              &stereo_fusion->color_metrics);
 }
 
 void OptionManager::AddPoissonMeshingOptions() {
