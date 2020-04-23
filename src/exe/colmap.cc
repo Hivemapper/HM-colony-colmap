@@ -314,12 +314,29 @@ int RunStereoFuser(int argc, char** argv) {
   std::cout << "Writing output ply: " << output_path << std::endl;
   WriteBinaryPlyPoints(output_path, fuser.GetFusedPoints());
   // WriteTextPlyPoints(output_path, fuser.GetFusedPoints());
-  std::cout << "Writing 2D/3D correspondence files: " << output_path + "_correspondence-data.csv, and " << output_path + "_correspondence-metadata.csv" << std::endl;
-  mvs::Write2d3dCorrespondenceData(output_path + "_correspondence-data.csv",
-                                   output_path + "_correspondence-metadata.csv",
+
+  // Get the output file prefix
+  std::string delimiter = ".ply";
+  std::string prefix = output_path.substr(0, output_path.find(delimiter));
+
+  // Write the correspondence data
+  std::string correspondence_file = prefix + "-correspondence-data.csv";
+  std::string correspondence_metafile = prefix + "-correspondence-metadata.csv";
+  std::cout << "Writing 2D/3D correspondence files: " << correspondence_file << ", and " << correspondence_metafile << std::endl;
+  mvs::Write2d3dCorrespondenceData(correspondence_file,
+                                   correspondence_metafile,
                                    fuser.Get2d3dCorrespondenceData());
-  std::cout << "Wrting fused point metrics: " << output_path + "_fused-point-metrics.csv" << std::endl;
-  mvs::WriteFusedPointsMetrics(output_path + "_fused-point-metrics.csv", fuser.GetFusedPointsMetrics(), *options.stereo_fusion);
+
+  // Writing the metrics data
+  std::string metrics_file = prefix + "-metrics.bin";
+  std::string metrics_metafile = prefix + "-metrics-metadata.csv";
+  std::cout << "Wrting fused point metrics: " << metrics_file << ", and " << metrics_metafile << std::endl;
+  // mvs::WriteFusedPointsMetrics(metrics_file, fuser.GetFusedPointsMetrics(),
+  // *options.stereo_fusion);
+  mvs::WriteFusedPointsMetricsBinary(metrics_file, metrics_metafile,
+                                     fuser.GetFusedPointsMetrics(),
+                                     *options.stereo_fusion);
+
   // VV Necessary for Delaunay meshing apparently VV
   mvs::WritePointsVisibility(output_path + ".vis",
                            fuser.GetFusedPointsVisibility());
