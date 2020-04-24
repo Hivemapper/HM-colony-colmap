@@ -627,9 +627,9 @@ void WriteFusedPointsMetricsBinary(
         dataBin.write((char*) &point.pz[j], sizeof(float));
       }
       if (options.color_metrics) {
-        dataBin.write((char*) &point.r[j], sizeof(float));
-        dataBin.write((char*) &point.g[j], sizeof(float));
-        dataBin.write((char*) &point.b[j], sizeof(float));
+        dataBin.write((char*) &point.r[j], sizeof(uint8_t));
+        dataBin.write((char*) &point.g[j], sizeof(uint8_t));
+        dataBin.write((char*) &point.b[j], sizeof(uint8_t));
       }
     }
   }
