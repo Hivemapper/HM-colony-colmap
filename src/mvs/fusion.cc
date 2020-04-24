@@ -593,6 +593,66 @@ void Write2d3dCorrespondenceData(
   metadataCSV.close();
 }
 
+void WriteFusedPointsMetricsBinary(
+    const std::string& dataPath,
+    const std::string& metadataPath,
+    const std::vector<PointMetrics>& points,
+    const StereoFusionOptions& options) {
+  // Open the data file
+  if (!options.coord_metrics && !options.normal_metrics && !options.view_ray_metrics && !options.color_metrics) {
+    return;
+  }
+  std::fstream dataBin(dataPath, std::ios::out | std::ios::binary);
+  std::fstream metadataBin(metadataPath, std::ios::out );
+
+  // Fill the Binary file
+  CHECK(dataBin.is_open()) << dataPath;
+  for (size_t i = 0; i < points.size(); ++i) {
+    PointMetrics point = points[i];
+    for (size_t j = 0; j < point.num_pixels; ++j) {
+      dataBin.write((char*) &i, sizeof(size_t));
+      if (options.coord_metrics) {
+        dataBin.write((char*) &point.x[j], sizeof(float));
+        dataBin.write((char*) &point.y[j], sizeof(float));
+        dataBin.write((char*) &point.z[j], sizeof(float));
+      }
+      if (options.normal_metrics) {
+        dataBin.write((char*) &point.nx[j], sizeof(float));
+        dataBin.write((char*) &point.ny[j], sizeof(float));
+        dataBin.write((char*) &point.nz[j], sizeof(float));
+      }
+      if (options.view_ray_metrics) {
+        dataBin.write((char*) &point.px[j], sizeof(float));
+        dataBin.write((char*) &point.py[j], sizeof(float));
+        dataBin.write((char*) &point.pz[j], sizeof(float));
+      }
+      if (options.color_metrics) {
+        dataBin.write((char*) &point.r[j], sizeof(uint8_t));
+        dataBin.write((char*) &point.g[j], sizeof(uint8_t));
+        dataBin.write((char*) &point.b[j], sizeof(uint8_t));
+      }
+    }
+  }
+  dataBin.close();
+
+  // Write out the headers to a metadata file
+  CHECK(metadataBin.is_open()) << metadataPath;
+  metadataBin << "PointIndex";
+  if (options.coord_metrics) {
+    metadataBin << ",x,y,z";
+  }
+  if (options.normal_metrics) {
+    metadataBin << ",nx,ny,nz";
+  }
+  if (options.view_ray_metrics) {
+    metadataBin << ",px,py,pz";
+  }
+  if (options.color_metrics) {
+    metadataBin << ",r,g,b";
+  }
+  metadataBin.close();
+}
+
 void WriteFusedPointsMetrics(
     const std::string& DataPath, 
     const std::vector<PointMetrics>& points,

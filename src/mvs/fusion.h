@@ -222,6 +222,12 @@ void WriteFusedPointsMetrics(
   const std::vector<PointMetrics>& points,
   const StereoFusionOptions& options);
 
+void WriteFusedPointsMetricsBinary(
+  const std::string& DataPath,
+  const std::string& MetadataPath,
+  const std::vector<PointMetrics>& points,
+  const StereoFusionOptions& options);
+
 int getFrameNumberFromFilename(std::string& frameFileName);
 
 }  // namespace mvs
