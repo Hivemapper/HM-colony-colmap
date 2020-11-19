@@ -30,12 +30,16 @@
 # Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 import numpy as np
+import sys
 
 
 def read_array(path):
     with open(path, "rb") as fid:
         width, height, channels = np.genfromtxt(fid, delimiter="&", max_rows=1,
                                                 usecols=(0, 1, 2), dtype=int)
+        print("width = ", width)
+        print("height = ",height)
+        
         fid.seek(0)
         num_delimiter = 0
         byte = fid.read(1)
@@ -52,10 +56,15 @@ def read_array(path):
 
 def main():
     # Read depth and normal maps corresponding to the same image.
-    depth_map = read_array(
-        "path/to/dense/stereo/depth_maps/image1.jpg.photometric.bin")
-    normal_map = read_array(
-        "path/to/dense/stereo/normal_maps/image1.jpg.photometric.bin")
+    display_normals = False
+    if (len(sys.argv)<2):
+        print("USAGE: python3 ./scripts/python/read_dense.py path/to/depth_maps/image1.jpg.photometric.bin [optional: path/to/normal_maps/image1.jpg.photometric.bin]")
+        exit()
+    else:
+        depth_map = read_array(sys.argv[1])
+    if (len(sys.argv)>2):
+        normal_map = read_array(sys.argv[2])
+        display_normals = True
 
     import pylab as plt
 
@@ -66,6 +75,13 @@ def main():
     plt.imshow(depth_map)
     plt.show()
 
+    # Visualize the normal map.
+    if(display_normals):
+        min_normal, max_normal = np.percentile(normal_map, [5, 95])
+        normal_map[normal_map < min_normal] = min_normal
+        normal_map[normal_map > max_normal] = max_normal
+        plt.imshow(normal_map)
+        plt.show()
 
 if __name__ == "__main__":
     main()
