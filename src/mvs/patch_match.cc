@@ -418,10 +418,14 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
   const std::string output_type =
       options.geom_consistency ? "geometric" : "photometric";
   const std::string image_name = model.GetImageName(problem.ref_image_idx);
-  const std::string file_name =
+    const std::string file_name =
       StringPrintf("%s.%s.bin", image_name.c_str(), output_type.c_str());
   const std::string depth_map_path =
       JoinPaths(workspace_path_, stereo_folder, "depth_maps", file_name);
+  const std::string file_nameCSV =
+      StringPrintf("%s.%s.csv", image_name.c_str(), output_type.c_str());
+  const std::string depth_map_pathCSV =
+      JoinPaths(workspace_path_, stereo_folder, "depth_maps", file_nameCSV);
   const std::string normal_map_path =
       JoinPaths(workspace_path_, stereo_folder, "normal_maps", file_name);
   const std::string consistency_graph_path = JoinPaths(
@@ -502,6 +506,7 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
                             image_name.c_str())
             << std::endl;
 
+  // patch_match.GetDepthMap().WriteCSV(depth_map_pathCSV);
   patch_match.GetDepthMap().Write(depth_map_path);
   patch_match.GetNormalMap().Write(normal_map_path);
   if (options.write_consistency_graph) {

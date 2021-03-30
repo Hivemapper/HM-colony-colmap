@@ -69,6 +69,7 @@ class Mat {
 
   void Read(const std::string& path);
   void Write(const std::string& path) const;
+  void WriteCSV(const std::string& path) const;
 
  protected:
   size_t width_ = 0;
@@ -188,6 +189,27 @@ void Mat<T>::Write(const std::string& path) const {
   CHECK(binary_file.is_open()) << path;
   WriteBinaryLittleEndian<T>(&binary_file, data_);
   binary_file.close();
+}
+
+template <typename T>
+void Mat<T>::WriteCSV(const std::string& path) const {
+  // Open the data file
+  std::fstream dataCSV(path, std::ios::out);
+
+  // Write the data to a CSV file
+  int ind = 0;
+  std::cout << "height_ = " << height_ << " width_ = " << width_ << std::endl;
+
+  for (unsigned int j = 0; j < height_; j++) {
+    for (unsigned int k = 0; k < width_ - 1; k++) {
+      ind = j * width_ + k;
+      dataCSV << data_[ind] << ",";
+    }
+    ind = ind + 1;
+    dataCSV << data_[ind] << "\n";
+  }
+
+  dataCSV.close();
 }
 
 }  // namespace mvs

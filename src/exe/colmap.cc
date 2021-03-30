@@ -35,6 +35,7 @@
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include <ctime>
 
 #include "base/similarity_transform.h"
 #include "controllers/automatic_reconstruction.h"
@@ -261,6 +262,10 @@ int RunDatabaseMerger(int argc, char** argv) {
 }
 
 int RunStereoFuser(int argc, char** argv) {
+  // Start timer
+  clock_t time_req;
+  time_req = clock();
+
   std::string workspace_path;
   std::string input_type = "geometric";
   std::string workspace_format = "COLMAP";
@@ -283,6 +288,9 @@ int RunStereoFuser(int argc, char** argv) {
     std::cout << "ERROR: Invalid `workspace_format` - supported values are "
                  "'COLMAP' or 'PMVS'."
               << std::endl;
+    time_req = clock() - time_req;
+    std::cout << "RunStereoFuser RUN TIME: " << (float)time_req / CLOCKS_PER_SEC
+              << " [sec] " << std::endl;
     return EXIT_FAILURE;
   }
 
@@ -291,6 +299,9 @@ int RunStereoFuser(int argc, char** argv) {
     std::cout << "ERROR: Invalid input type - supported values are "
                  "'photometric' and 'geometric'."
               << std::endl;
+    time_req = clock() - time_req;
+    std::cout << "RunStereoFuser RUN TIME: " << (float)time_req / CLOCKS_PER_SEC
+              << " [sec] " << std::endl;
     return EXIT_FAILURE;
   }
 
@@ -300,17 +311,49 @@ int RunStereoFuser(int argc, char** argv) {
   fuser.Start();
   fuser.Wait();
 
-  std::cout << "Writing output: " << output_path << std::endl;
+  std::cout << "Writing output ply: " << output_path << std::endl;
   WriteBinaryPlyPoints(output_path, fuser.GetFusedPoints());
-  mvs::WritePointsVisibility(output_path + ".vis",
-                             fuser.GetFusedPointsVisibility());
+  // WriteTextPlyPoints(output_path, fuser.GetFusedPoints());
 
+  // Get the output file prefix
+  std::string delimiter = ".ply";
+  std::string prefix = output_path.substr(0, output_path.find(delimiter));
+
+  // Write the correspondence data
+  std::string correspondence_file = prefix + "-correspondence-data.csv";
+  std::string correspondence_metafile = prefix + "-correspondence-metadata.csv";
+  std::cout << "Writing 2D/3D correspondence files: " << correspondence_file << ", and " << correspondence_metafile << std::endl;
+  mvs::Write2d3dCorrespondenceData(correspondence_file,
+                                   correspondence_metafile,
+                                   fuser.Get2d3dCorrespondenceData());
+
+  // Writing the metrics data
+  std::string metrics_file = prefix + "-metrics.bin";
+  std::string metrics_metafile = prefix + "-metrics-metadata.csv";
+  std::cout << "Wrting fused point metrics: " << metrics_file << ", and " << metrics_metafile << std::endl;
+  // mvs::WriteFusedPointsMetrics(metrics_file, fuser.GetFusedPointsMetrics(),
+  // *options.stereo_fusion);
+  mvs::WriteFusedPointsMetricsBinary(metrics_file, metrics_metafile,
+                                     fuser.GetFusedPointsMetrics(),
+                                     *options.stereo_fusion);
+
+  // VV Necessary for Delaunay meshing apparently VV
+  mvs::WritePointsVisibility(output_path + ".vis",
+                           fuser.GetFusedPointsVisibility());
+
+  time_req = clock() - time_req;
+  std::cout << "RunStereoFuser RUN TIME: "
+            << (float)time_req / CLOCKS_PER_SEC << " [sec] " << std::endl;
   return EXIT_SUCCESS;
 }
 
 int RunPoissonMesher(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
+
+  // Start timer
+  clock_t time_req;
+  time_req = clock();
 
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
@@ -320,6 +363,8 @@ int RunPoissonMesher(int argc, char** argv) {
 
   CHECK(mvs::PoissonMeshing(*options.poisson_meshing, input_path, output_path));
 
+  time_req = clock() - time_req;
+  std::cout << "PoissonMeshing RUN TIME: " << (float)time_req / CLOCKS_PER_SEC << " [sec] " << std::endl;
   return EXIT_SUCCESS;
 }
 
@@ -354,10 +399,17 @@ int RunProjectGenerator(int argc, char** argv) {
 }
 
 int RunDelaunayMesher(int argc, char** argv) {
+  // Start timer
+  clock_t time_req;
+  time_req = clock();
+
 #ifndef CGAL_ENABLED
   std::cerr << "ERROR: Delaunay meshing requires CGAL, which is not "
                "available on your system."
             << std::endl;
+  time_req = clock() - time_req;
+  std::cout << "RunDelaunayMesher RUN TIME: "
+            << (float)time_req / CLOCKS_PER_SEC << " [sec] " << std::endl;
   return EXIT_FAILURE;
 #else   // CGAL_ENABLED
   std::string input_path;
@@ -384,9 +436,15 @@ int RunDelaunayMesher(int argc, char** argv) {
     std::cout << "ERROR: Invalid input type - "
                  "supported values are 'sparse' and 'dense'."
               << std::endl;
+    time_req = clock() - time_req;
+    std::cout << "RunDelaunayMesher RUN TIME: "
+              << (float)time_req / CLOCKS_PER_SEC << " [sec] " << std::endl;
     return EXIT_FAILURE;
   }
 
+  time_req = clock() - time_req;
+  std::cout << "RunDelaunayMesher RUN TIME: "
+            << (float)time_req / CLOCKS_PER_SEC << " [sec] " << std::endl;
   return EXIT_SUCCESS;
 #endif  // CGAL_ENABLED
 }

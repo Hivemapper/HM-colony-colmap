@@ -30,8 +30,13 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "mvs/fusion.h"
-
+#include <map>
+#include <iostream>
+#include <string>
+#include <utility>
+#include <limits>
 #include "util/misc.h"
+
 
 namespace colmap {
 namespace mvs {
@@ -132,9 +137,19 @@ const std::vector<std::vector<int>>& StereoFusion::GetFusedPointsVisibility()
   return fused_points_visibility_;
 }
 
+const std::map<int, FrameData>& StereoFusion::Get2d3dCorrespondenceData()
+    const {
+  return frame_number_to_3dlist_;
+}
+
+const std::vector<PointMetrics>& StereoFusion::GetFusedPointsMetrics() const {
+  return fused_points_metrics_;
+}
+
 void StereoFusion::Run() {
   fused_points_.clear();
   fused_points_visibility_.clear();
+  frame_number_to_3dlist_.clear();
 
   options_.Print();
   std::cout << std::endl;
@@ -184,6 +199,7 @@ void StereoFusion::Run() {
   P_.resize(model.images.size());
   inv_P_.resize(model.images.size());
   inv_R_.resize(model.images.size());
+  C_.resize(model.images.size());
 
   const auto image_names = ReadTextFileLines(JoinPaths(
       workspace_path_, workspace_options.stereo_folder, "fusion.cfg"));
@@ -229,6 +245,9 @@ void StereoFusion::Run() {
                             P_.at(image_idx).data());
     ComposeInverseProjectionMatrix(K.data(), image.GetR(), image.GetT(),
                                    inv_P_.at(image_idx).data());
+
+    ComputeProjectionCenter(image.GetR(), image.GetT(), C_.at(image_idx).data());
+
     inv_R_.at(image_idx) =
         Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>>(
             image.GetR())
@@ -254,6 +273,18 @@ void StereoFusion::Run() {
     const int height = depth_map_sizes_.at(image_idx).second;
     const auto& fused_pixel_mask = fused_pixel_masks_.at(image_idx);
 
+    // Build the map of frame metadata to image_idx. We need this map here
+    // because unlike image_idx, and traversal_depth, 'height', 'width', and
+    // 'name' are not assigned for the 'next_data' frame. If we dont do this
+    // step here and make this mapping, the inner 'while' loop will need a place
+    // to get this data from.
+    std::map<int, FrameMetadata> FrameMetadataMap;
+    for (unsigned int i = 0; i < model.images.size(); ++i) {
+      FrameMetadataMap[i].name = model.GetImageName(i);
+      FrameMetadataMap[i].height = height;
+      FrameMetadataMap[i].width = width;
+    }
+
     FusionData data;
     data.image_idx = image_idx;
     data.traversal_depth = 0;
@@ -263,10 +294,8 @@ void StereoFusion::Run() {
         if (fused_pixel_mask.Get(data.row, data.col)) {
           continue;
         }
-
         fusion_queue_.push_back(data);
-
-        Fuse();
+        Fuse(FrameMetadataMap);
       }
     }
 
@@ -292,22 +321,31 @@ void StereoFusion::Run() {
   GetTimer().PrintMinutes();
 }
 
-void StereoFusion::Fuse() {
+void StereoFusion::Fuse(std::map<int, FrameMetadata> FrameMetadataMap) {
   CHECK_EQ(fusion_queue_.size(), 1);
 
   Eigen::Vector4f fused_ref_point = Eigen::Vector4f::Zero();
   Eigen::Vector3f fused_ref_normal = Eigen::Vector3f::Zero();
 
-  fused_point_x_.clear();
-  fused_point_y_.clear();
-  fused_point_z_.clear();
   fused_point_nx_.clear();
   fused_point_ny_.clear();
   fused_point_nz_.clear();
-  fused_point_r_.clear();
-  fused_point_g_.clear();
-  fused_point_b_.clear();
+  fused_point_metric_.x.clear();
+  fused_point_metric_.y.clear();
+  fused_point_metric_.z.clear();
+  fused_point_metric_.nx.clear();
+  fused_point_metric_.ny.clear();
+  fused_point_metric_.nz.clear();
+  fused_point_metric_.px.clear();
+  fused_point_metric_.py.clear();
+  fused_point_metric_.pz.clear();
+  fused_point_metric_.r.clear();
+  fused_point_metric_.g.clear();
+  fused_point_metric_.b.clear();
+
   fused_point_visibility_.clear();
+  fused_point_visibility_row.clear();
+  fused_point_visibility_col.clear();
 
   while (!fusion_queue_.empty()) {
     const auto data = fusion_queue_.back();
@@ -316,6 +354,10 @@ void StereoFusion::Fuse() {
     const int col = data.col;
     const int traversal_depth = data.traversal_depth;
 
+    auto frameMetadata = FrameMetadataMap[image_idx];
+    std::string imageName = frameMetadata.name;
+    const int height = frameMetadata.height;
+    const int width = frameMetadata.width;
     fusion_queue_.pop_back();
 
     // Check if pixel already fused.
@@ -360,6 +402,7 @@ void StereoFusion::Fuse() {
         inv_R_.at(image_idx) * Eigen::Vector3f(normal_map.Get(row, col, 0),
                                                normal_map.Get(row, col, 1),
                                                normal_map.Get(row, col, 2));
+    const Eigen::Vector3f normal_unit = normal / normal.norm();
 
     // Check for consistent normal direction with reference normal.
     if (traversal_depth > 0) {
@@ -374,6 +417,10 @@ void StereoFusion::Fuse() {
         inv_P_.at(image_idx) *
         Eigen::Vector4f(col * depth, row * depth, depth, 1.0f);
 
+    // Calculate projection ray in global frame
+    const Eigen::Vector3f proj_ray = xyz - C_.at(image_idx);
+    const Eigen::Vector3f proj_ray_unit = proj_ray / proj_ray.norm();
+
     // Read the color of the pixel.
     BitmapColor<uint8_t> color;
     const auto& bitmap_scale = bitmap_scales_.at(image_idx);
@@ -384,16 +431,35 @@ void StereoFusion::Fuse() {
     fused_pixel_mask.Set(row, col, true);
 
     // Accumulate statistics for fused point.
-    fused_point_x_.push_back(xyz(0));
-    fused_point_y_.push_back(xyz(1));
-    fused_point_z_.push_back(xyz(2));
+    // Save full normal for future use
     fused_point_nx_.push_back(normal(0));
     fused_point_ny_.push_back(normal(1));
     fused_point_nz_.push_back(normal(2));
-    fused_point_r_.push_back(color.r);
-    fused_point_g_.push_back(color.g);
-    fused_point_b_.push_back(color.b);
-    fused_point_visibility_.insert(image_idx);
+    fused_point_metric_.x.push_back(xyz(0));
+    fused_point_metric_.y.push_back(xyz(1));
+    fused_point_metric_.z.push_back(xyz(2));
+    fused_point_metric_.nx.push_back(normal_unit(0));
+    fused_point_metric_.ny.push_back(normal_unit(1));
+    fused_point_metric_.nz.push_back(normal_unit(2));
+    fused_point_metric_.px.push_back(proj_ray_unit(0));
+    fused_point_metric_.py.push_back(proj_ray_unit(1));
+    fused_point_metric_.pz.push_back(proj_ray_unit(2));
+    fused_point_metric_.r.push_back(color.r);
+    fused_point_metric_.g.push_back(color.g);
+    fused_point_metric_.b.push_back(color.b);
+
+    // Use the COLMAP image index to get the image filename, then get the int
+    // from the filename to get the proper frame_selection frame number
+    int frameNumber = getFrameNumberFromFilename(imageName);
+    fused_point_visibility_.insert(frameNumber);
+
+    // Add the height / width data for this frame
+    frame_number_to_3dlist_[frameNumber].height = height;
+    frame_number_to_3dlist_[frameNumber].width = width;
+
+    // Add the row/col info for each frame that sees this 3D point
+    fused_point_visibility_row[frameNumber] = row;
+    fused_point_visibility_col[frameNumber] = col;
 
     // Remember the first pixel as the reference.
     if (traversal_depth == 0) {
@@ -401,7 +467,7 @@ void StereoFusion::Fuse() {
       fused_ref_normal = normal;
     }
 
-    if (fused_point_x_.size() >= static_cast<size_t>(options_.max_num_pixels)) {
+    if (fused_point_metric_.x.size() >= static_cast<size_t>(options_.max_num_pixels)) {
       break;
     }
 
@@ -438,7 +504,8 @@ void StereoFusion::Fuse() {
 
   fusion_queue_.clear();
 
-  const size_t num_pixels = fused_point_x_.size();
+  fused_point_metric_.num_pixels = fused_point_metric_.x.size();
+  const size_t num_pixels = fused_point_metric_.num_pixels;
   if (num_pixels >= static_cast<size_t>(options_.min_num_pixels)) {
     PlyPoint fused_point;
 
@@ -451,25 +518,200 @@ void StereoFusion::Fuse() {
       return;
     }
 
-    fused_point.x = internal::Median(&fused_point_x_);
-    fused_point.y = internal::Median(&fused_point_y_);
-    fused_point.z = internal::Median(&fused_point_z_);
+    fused_point.x = internal::Median(&fused_point_metric_.x);
+    fused_point.y = internal::Median(&fused_point_metric_.y);
+    fused_point.z = internal::Median(&fused_point_metric_.z);
 
     fused_point.nx = fused_normal.x() / fused_normal_norm;
     fused_point.ny = fused_normal.y() / fused_normal_norm;
     fused_point.nz = fused_normal.z() / fused_normal_norm;
 
     fused_point.r = TruncateCast<float, uint8_t>(
-        std::round(internal::Median(&fused_point_r_)));
+        std::round(internal::Median(&fused_point_metric_.r)));
     fused_point.g = TruncateCast<float, uint8_t>(
-        std::round(internal::Median(&fused_point_g_)));
+        std::round(internal::Median(&fused_point_metric_.g)));
     fused_point.b = TruncateCast<float, uint8_t>(
-        std::round(internal::Median(&fused_point_b_)));
+        std::round(internal::Median(&fused_point_metric_.b)));
 
+    int fusedPointIndex = fused_points_.size();
     fused_points_.push_back(fused_point);
+    fused_points_metrics_.push_back(fused_point_metric_);
     fused_points_visibility_.emplace_back(fused_point_visibility_.begin(),
                                           fused_point_visibility_.end());
+
+    // For each frame that sees this 3D point, add 3d point information: row,col
+    // of 3d point in frame. 3d point ply index.
+    for (auto& frame :
+         fused_point_visibility_) {  // Using the REAL frame number
+      frame_number_to_3dlist_[frame].coord3dInd.push_back(
+          fusedPointIndex);  // Gives the c++ index of the fused point (first at
+                             // 0, not 1).
+      frame_number_to_3dlist_[frame].coord2drow.push_back(
+          fused_point_visibility_row[frame]);
+      frame_number_to_3dlist_[frame].coord2dcol.push_back(
+          fused_point_visibility_col[frame]);
+    }
   }
+}
+
+void Write2d3dCorrespondenceData(
+    const std::string& DataPath, const std::string& MetaDataPath,
+    const std::map<int, FrameData>& frame_number_to_3dlist_) {
+  // Open the data file
+  std::fstream dataCSV(DataPath, std::ios::out);
+  CHECK(dataCSV.is_open()) << DataPath;
+
+  // Open the metadata file
+  std::fstream metadataCSV(MetaDataPath, std::ios::out);
+  CHECK(metadataCSV.is_open()) << MetaDataPath;
+
+  // Write the headers for the csv files
+  metadataCSV << "FrameNumber,Height,Width,NumPoints\n";
+  dataCSV << "FrameNumber,FrameRow,FrameCol,3dPlyIndex\n";
+
+  // Fill the CSV file frame by frame
+  for (const auto& frameData : frame_number_to_3dlist_) {
+    int frameNumber = frameData.first;
+    FrameData pointsData = frameData.second;
+
+    // Check that the number of 3D and 2D points are the same for a given frame
+    assert(pointsData.coord3dInd.size() == pointsData.coord2drow.size());
+
+    // Write frame info: (FrameNumber, height, width, #pointsForThisFrame)
+    metadataCSV << frameNumber << "," << pointsData.height << ","
+                << pointsData.width << "," << pointsData.coord2drow.size()
+                << "\n";
+
+    // Describe points: (2dx,2dy,3dpointIndexForPlyFile)
+    for (unsigned int i = 0; i < pointsData.coord2drow.size(); ++i) {
+      dataCSV << frameNumber << "," << pointsData.coord2drow[i] << ","
+              << pointsData.coord2dcol[i] << "," << pointsData.coord3dInd[i]
+              << "\n";
+    }
+  }
+  dataCSV.close();
+  metadataCSV.close();
+}
+
+void WriteFusedPointsMetricsBinary(
+    const std::string& dataPath,
+    const std::string& metadataPath,
+    const std::vector<PointMetrics>& points,
+    const StereoFusionOptions& options) {
+  // Open the data file
+  if (!options.coord_metrics && !options.normal_metrics && !options.view_ray_metrics && !options.color_metrics) {
+    return;
+  }
+  std::fstream dataBin(dataPath, std::ios::out | std::ios::binary);
+  std::fstream metadataBin(metadataPath, std::ios::out );
+
+  // Fill the Binary file
+  CHECK(dataBin.is_open()) << dataPath;
+  for (size_t i = 0; i < points.size(); ++i) {
+    PointMetrics point = points[i];
+    for (size_t j = 0; j < point.num_pixels; ++j) {
+      dataBin.write((char*) &i, sizeof(size_t));
+      if (options.coord_metrics) {
+        dataBin.write((char*) &point.x[j], sizeof(float));
+        dataBin.write((char*) &point.y[j], sizeof(float));
+        dataBin.write((char*) &point.z[j], sizeof(float));
+      }
+      if (options.normal_metrics) {
+        dataBin.write((char*) &point.nx[j], sizeof(float));
+        dataBin.write((char*) &point.ny[j], sizeof(float));
+        dataBin.write((char*) &point.nz[j], sizeof(float));
+      }
+      if (options.view_ray_metrics) {
+        dataBin.write((char*) &point.px[j], sizeof(float));
+        dataBin.write((char*) &point.py[j], sizeof(float));
+        dataBin.write((char*) &point.pz[j], sizeof(float));
+      }
+      if (options.color_metrics) {
+        dataBin.write((char*) &point.r[j], sizeof(uint8_t));
+        dataBin.write((char*) &point.g[j], sizeof(uint8_t));
+        dataBin.write((char*) &point.b[j], sizeof(uint8_t));
+      }
+    }
+  }
+  dataBin.close();
+
+  // Write out the headers to a metadata file
+  CHECK(metadataBin.is_open()) << metadataPath;
+  metadataBin << "PointIndex";
+  if (options.coord_metrics) {
+    metadataBin << ",x,y,z";
+  }
+  if (options.normal_metrics) {
+    metadataBin << ",nx,ny,nz";
+  }
+  if (options.view_ray_metrics) {
+    metadataBin << ",px,py,pz";
+  }
+  if (options.color_metrics) {
+    metadataBin << ",r,g,b";
+  }
+  metadataBin.close();
+}
+
+void WriteFusedPointsMetrics(
+    const std::string& DataPath, 
+    const std::vector<PointMetrics>& points,
+    const StereoFusionOptions& options) {
+  // Open the data file
+  if (!options.coord_metrics && !options.normal_metrics && !options.view_ray_metrics && !options.color_metrics) {
+    return;
+  }
+  std::fstream dataCSV(DataPath, std::ios::out);
+  CHECK(dataCSV.is_open()) << DataPath;
+
+  dataCSV << "PointIndex";
+  if (options.coord_metrics) {
+    dataCSV << ",x,y,z";
+  }
+  if (options.normal_metrics) {
+    dataCSV << ",nx,ny,nz";
+  }
+  if (options.view_ray_metrics) {
+    dataCSV << ",px,py,pz";
+  }
+  if (options.color_metrics) {
+    dataCSV << ",r,g,b";
+  }
+  dataCSV << "\n";
+
+  // Fill the CSV file
+  for (size_t i = 0; i < points.size(); ++i) {
+    PointMetrics point = points[i];
+    for (size_t j = 0; j < point.num_pixels; ++j) {
+      dataCSV << i; 
+      if (options.coord_metrics) {
+        dataCSV << "," << point.x[j] << "," << point.y[j] << "," << point.z[j] << ",";
+      }
+      if (options.normal_metrics) {
+        dataCSV << "," << point.nx[j] << "," << point.ny[j] << "," << point.nz[j] << ",";
+      }
+      if (options.view_ray_metrics) {
+        dataCSV << "," << point.px[j] << "," << point.py[j] << "," << point.pz[j] << ",";
+      }
+      if (options.color_metrics) {
+        dataCSV << "," << static_cast<int>(point.r[j]) << "," << static_cast<int>(point.g[j]) << "," << static_cast<int>(point.b[j]);
+      }
+      dataCSV << "\n";
+    }
+  }
+  dataCSV.close();
+}
+
+int getFrameNumberFromFilename(std::string& frameFileName) {
+  std::string toErase = ".png";
+  size_t pos = std::string::npos;
+  // Search for the substring in string in a loop untill nothing is found
+  while ((pos = frameFileName.find(toErase)) != std::string::npos) {
+    // If found then erase it from string
+    frameFileName.erase(pos, toErase.length());
+  }
+  int frameNumber = atoi(frameFileName.c_str());
+  return frameNumber;
 }
 
 void WritePointsVisibility(
